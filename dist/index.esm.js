@@ -16,7 +16,7 @@ export { CoverageBanner, CoverageStrip, healthTone, readDeniedText, statusOf, su
 export { DEFAULT_PAGE_SIZE, PAGE_SIZES, Pager, pageSlice } from './kit/Pager.esm.js';
 export { BASELINE_POLICY, NOT_TIERED, TIER_FLOOR_NOTE, TierBadge, TierFilter, TierKey, TierMix, tierCountsOf, tierDefs, tierWhy, useTierPolicy } from './kit/tiers.esm.js';
 export { CLEARANCE_VIEWS, ClearancePage } from './views/ClearancePage.esm.js';
-export { ClearancesView } from './views/clearances/ClearancesView.esm.js';
+export { ClearanceDetail, ClearancesView, stateTone, stillNeeds } from './views/clearances/ClearancesView.esm.js';
 export { ChangeProof } from './views/clearances/ChangeProof.esm.js';
 export { EvidenceView } from './views/evidence/EvidenceView.esm.js';
 export { ExceptionsView } from './views/exceptions/ExceptionsView.esm.js';
