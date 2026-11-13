@@ -1,6 +1,6 @@
 name: CI
 
-# Validates the package before anything is tagged. Consumers pin a tag (RELEASING.md), and nothing builds at
+# Validates the package and the shell before anything is tagged. Consumers pin a tag (RELEASING.md), and nothing builds at
 # install, so a commit whose dist/ is stale or whose tests fail must not reach main.
 
 on:
@@ -45,3 +45,8 @@ jobs:
       - name: Committed dist matches a fresh build
         run: yarn check-dist
 
+      - name: Build the shell
+        run: yarn app:build
+
+      - name: Pack the shell (CSP and hashed-asset checks)
+        run: yarn app:bundle
