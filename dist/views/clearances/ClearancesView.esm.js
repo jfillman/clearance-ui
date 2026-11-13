@@ -1,10 +1,10 @@
-import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
+import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { shortPrincipal, relativeTime, dateTime } from '../../kit/format.esm.js';
+import { shortPrincipal, dateTime, relativeTime } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
-import { useTableKit, StatRow, Card, Stat, Section, FilterBar, FilterChips, TabError, PanelSkeleton, EmptyNote, StatusChip, Tooltip, useInputClass, FactGrid, Fact, Button, Callout, Chip } from '../../kit/kit.esm.js';
+import { useTableKit, useInputClass, Section, FactGrid, Fact, Button, Callout, Chip, StatusChip, StatRow, Card, Stat, FilterBar, FilterChips, TabError, PanelSkeleton, EmptyNote, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -12,7 +12,7 @@ import { useClearanceRead } from '../../kit/read.esm.js';
 import { useClearanceWrite, ControlError } from '../../kit/write.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
-import { useTierPolicy, tierCountsOf, TierMix, TierFilter, TierKey, TierBadge, tierDefs, tierWhy } from '../../kit/tiers.esm.js';
+import { useTierPolicy, tierDefs, tierWhy, TierBadge, tierCountsOf, TierMix, TierFilter, TierKey } from '../../kit/tiers.esm.js';
 import { ChangeProof } from './ChangeProof.esm.js';
 
 const STATES = [

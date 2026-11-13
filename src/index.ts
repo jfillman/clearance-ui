@@ -3,7 +3,7 @@
 // <ClearanceTransportProvider>. Backstage's plugin and the standalone shell (app/) are the two hosts.
 export * from './kit';
 export { ClearancePage, CLEARANCE_VIEWS, type ClearanceView } from './views/ClearancePage';
-export { ClearancesView } from './views/clearances/ClearancesView';
+export { ClearancesView, ClearanceDetail, stillNeeds, stateTone } from './views/clearances/ClearancesView';
 export { ChangeProof } from './views/clearances/ChangeProof';
 export { EvidenceView } from './views/evidence/EvidenceView';
 export { ExceptionsView } from './views/exceptions/ExceptionsView';
