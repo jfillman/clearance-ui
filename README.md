@@ -1,2 +1,2 @@
-# clearance-hi
+# clearance-ui
 Clearance UI repo. 
