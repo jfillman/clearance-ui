@@ -1,0 +1,47 @@
+name: CI
+
+# Validates the package before anything is tagged. Consumers pin a tag (RELEASING.md), and nothing builds at
+# install, so a commit whose dist/ is stale or whose tests fail must not reach main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Type-check
+        run: yarn tsc
+
+      - name: Test
+        run: yarn test --ci
+        env:
+          CI: "true"
+
+      - name: Build the package
+        run: yarn build
+
+      - name: Committed dist matches a fresh build
+        run: yarn check-dist
+

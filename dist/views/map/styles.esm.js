@@ -1,0 +1,119 @@
+import { makeStyles } from '@material-ui/core/styles';
+import { tokensForTheme, fontScale, fontMono, fontBody, fontDisplay } from '../../kit/tokens.esm.js';
+import 'react';
+import '../../kit/kit.esm.js';
+import '../../kit/components.esm.js';
+import '../../kit/FlightLog.esm.js';
+import '../../kit/transport.esm.js';
+import 'react/jsx-runtime';
+import '../../kit/coverage.esm.js';
+import '../../kit/Pager.esm.js';
+import '../../kit/kitStyles.esm.js';
+
+const useMapStyles = makeStyles((theme) => {
+  const t = tokensForTheme(theme);
+  return {
+    "@keyframes mapFlow": { to: { strokeDashoffset: -24 } },
+    stage: { position: "relative", padding: "14px 16px 12px" },
+    scroll: { overflowX: "auto", overflowY: "visible" },
+    svg: { display: "block", width: "100%", minWidth: 720, height: "auto", overflow: "visible" },
+    node: {
+      cursor: "pointer",
+      outline: "none",
+      "& .frame": { fill: t.panel, stroke: t.line, strokeWidth: 1 },
+      "&:hover .frame, &:focus-visible .frame": { stroke: t.sky, strokeWidth: 2 }
+    },
+    nodeDim: { opacity: 0.28 },
+    nodeTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.lg, fill: t.textHi },
+    nodeText: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.textLo },
+    nodeStrong: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.textHi },
+    nodeAmber: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.amberText },
+    colHead: { fontFamily: fontMono, fontWeight: 600, fontSize: fontScale.xs, letterSpacing: "0.1em", textTransform: "uppercase", fill: t.textLo },
+    row: { "& .rowFrame": { fill: t.panelAlt, stroke: "none" }, "&:hover .rowFrame, &:focus-visible .rowFrame": { stroke: t.sky, strokeWidth: 1.5 } },
+    edge: { fill: "none", strokeLinejoin: "round", strokeLinecap: "butt" },
+    flow: {
+      fill: "none",
+      stroke: t.sky,
+      strokeWidth: 1.5,
+      strokeDasharray: "4 8",
+      opacity: 0.9,
+      "@media (prefers-reduced-motion: no-preference)": { animation: "$mapFlow 1.6s linear infinite" }
+    },
+    popover: {
+      position: "absolute",
+      zIndex: 3,
+      width: 280,
+      maxWidth: "calc(100% - 16px)",
+      backgroundColor: t.panel,
+      border: `1px solid ${t.line}`,
+      borderRadius: 6,
+      padding: "10px 12px",
+      boxShadow: `0 4px 14px ${t.bg}`,
+      fontFamily: fontBody,
+      fontSize: fontScale.sm,
+      color: t.textHi,
+      display: "grid",
+      gap: 6
+    },
+    popHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    popName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.lg, margin: 0 },
+    popFacts: { display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: fontScale.sm, "& dt": { color: t.textLo }, "& dd": { margin: 0, textAlign: "right" } },
+    legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 16px", padding: "8px 16px 12px", fontFamily: fontMono, fontSize: fontScale.xs, color: t.textLo },
+    legendItem: { display: "inline-flex", alignItems: "center", gap: 6 },
+    swatch: { display: "inline-block", width: 22, height: 0, borderTopWidth: 3, borderTopStyle: "solid" },
+    swatchOk: { borderTopColor: t.good },
+    swatchAttn: { borderTopColor: t.amber },
+    swatchDown: { borderTopColor: t.bad },
+    swatchWatch: { borderTopColor: t.textFaint, borderTopStyle: "dashed", borderTopWidth: 2 },
+    attnList: { listStyle: "none", margin: 0, padding: 0, display: "grid" },
+    attnItem: { display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "10px 16px", borderTop: `1px solid ${t.lineSoft}`, "&:first-child": { borderTop: "none" } },
+    attnTitle: { margin: 0, fontFamily: fontBody, fontSize: fontScale.md, fontWeight: 500, color: t.textHi },
+    attnDetail: { margin: "2px 0 0", fontFamily: fontMono, fontSize: fontScale.sm, color: t.textLo },
+    split: { display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)", "@media (min-width: 1100px)": { gridTemplateColumns: "minmax(0, 1fr) 340px" } },
+    // lanes
+    lanes: { width: "100%", borderCollapse: "collapse" },
+    laneHead: { textAlign: "left", padding: "8px 12px", fontFamily: fontMono, fontWeight: 500, fontSize: fontScale.xs, letterSpacing: "0.1em", textTransform: "uppercase", color: t.textLo, borderBottom: `1px solid ${t.line}`, whiteSpace: "nowrap" },
+    laneSub: { display: "block", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: t.textFaint },
+    laneCell: { padding: "10px 12px", borderBottom: `1px solid ${t.lineSoft}`, verticalAlign: "top", fontFamily: fontMono, fontSize: fontScale.sm, color: t.textHi },
+    laneName: { padding: "10px 12px", borderBottom: `1px solid ${t.lineSoft}`, verticalAlign: "top", minWidth: 190 },
+    laneRowOn: { backgroundColor: t.panelAlt },
+    laneNum: { display: "block", fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.lg },
+    laneTrack: { display: "block", height: 4, borderRadius: 2, backgroundColor: t.lineSoft, marginTop: 4, overflow: "hidden" },
+    laneFill: { display: "block", height: "100%", backgroundColor: t.textFaint },
+    laneFillGood: { backgroundColor: t.good },
+    laneExtra: { display: "block", marginTop: 4, fontFamily: fontMono, fontSize: fontScale.xs, color: t.textLo },
+    laneExtraAmber: { color: t.amberText },
+    laneExtraBad: { color: t.bad },
+    // coverage mix
+    mixBar: { display: "flex", height: 10, borderRadius: 3, overflow: "hidden", backgroundColor: t.lineSoft },
+    mixSeg: { display: "block", height: "100%" },
+    mixList: { listStyle: "none", margin: "10px 0 0", padding: 0, display: "grid", gap: 4, fontFamily: fontMono, fontSize: fontScale.sm },
+    mixLine: { display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", color: t.textHi },
+    mixKey: { display: "inline-flex", alignItems: "center", gap: 8 },
+    mixDot: { display: "inline-block", width: 10, height: 10, borderRadius: 2 },
+    // matrix
+    matrix: { borderCollapse: "separate", borderSpacing: 2 },
+    matrixRowHead: { position: "sticky", left: 0, backgroundColor: t.panel, padding: "2px 10px 2px 0", textAlign: "left", whiteSpace: "nowrap", fontFamily: fontMono, fontSize: fontScale.sm, color: t.textHi, zIndex: 1 },
+    matrixCell: { width: 16, height: 16, minWidth: 16, padding: 0, borderRadius: 3, cursor: "pointer", textAlign: "center", "&:focus-visible": { outline: `2px solid ${t.sky}`, outlineOffset: 1 } },
+    cellEnforce: { backgroundColor: t.good },
+    cellFlag: { backgroundColor: t.amber },
+    cellSilent: { backgroundColor: t.textFaint },
+    cellNone: { backgroundColor: "transparent", border: `1px dashed ${t.bad}` },
+    matrixScroll: { overflowX: "auto", padding: "10px 16px 12px" },
+    // detail
+    crumbs: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontFamily: fontMono, fontSize: fontScale.sm, color: t.textLo },
+    detailTitle: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 },
+    detailName: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.x2, color: t.textHi },
+    twoUp: { display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" },
+    listRows: { listStyle: "none", margin: 0, padding: 0, display: "grid" },
+    listRow: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${t.lineSoft}`, "&:first-child": { borderTop: "none" } },
+    pad: { padding: "4px 16px 8px" },
+    grow: { flex: 1, minWidth: 0 },
+    rowName: { fontFamily: fontBody, fontSize: fontScale.md, fontWeight: 500, color: t.textHi },
+    rowMeta: { display: "block", fontFamily: fontMono, fontSize: fontScale.sm, color: t.textLo },
+    visuallyHidden: { position: "absolute", width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 }
+  };
+});
+
+export { useMapStyles };
+//# sourceMappingURL=styles.esm.js.map
