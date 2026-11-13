@@ -1,0 +1,32 @@
+name: Release bundle
+
+# On a version tag: build the standalone shell and attach it to the GitHub release, for Clearance's release to embed
+# (docs/web-ui-bundle.md). The package itself needs nothing here: consumers pin the tag and the tag holds dist/.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: yarn install --immutable
+      - name: The tag matches package.json
+        run: test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
+      - run: yarn app:build
+      - run: yarn app:bundle
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "clearance-ui $GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" out/*.tar.gz out/*.sha256 --clobber

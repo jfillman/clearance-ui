@@ -8,12 +8,13 @@ publish token. A consumer (`backstage`) pins a tag directly:
 ```
 
 Because of that, the tagged commit must already contain the **built** `dist/`: nothing runs a build at install time.
-CI (`.github/workflows/ci.yml`) installs with `--immutable`, runs lint, `tsc`, the tests and the build, and fails when the committed `dist/` differs from a fresh build, so a stale `dist/` cannot reach `main`.
+CI (`.github/workflows/ci.yml`) installs with `--immutable`, runs lint, `tsc`, the tests and the build, builds the shell,
+and fails when the committed `dist/` differs from a fresh build, so a stale `dist/` cannot reach `main`.
 
 ## Steps
 
 1. Make sure `main` is clean and CI is green.
-2. On a branch: bump `version` in `package.json`, `yarn build`, and commit
+2. On a branch: bump `version` in `package.json` (the shell's tarball takes the same version), `yarn build`, and commit
    `package.json` and `dist/` (`git commit -m "release: vX.Y.Z (what changed)"`). Open the PR, wait for CI, merge.
 3. Tag `main`'s merge commit and push the tag:
    ```bash
@@ -25,4 +26,8 @@ CI (`.github/workflows/ci.yml`) installs with `--immutable`, runs lint, `tsc`, t
    # packages/app/package.json (and any plugin's package.json): "@jfillman/clearance-ui": "jfillman/clearance-ui#vX.Y.Z"
    yarn install
    ```
-A change to the kit that Backstage and the standalone web UI both render is released once and pinned by both.
+5. For the standalone web UI, the release workflow (`.github/workflows/release.yml`, on the tag) builds the shell and
+   attaches `clearance-ui-web-X.Y.Z.tar.gz` and its `.sha256` to the GitHub release; Clearance's release picks it up
+   (docs/web-ui-bundle.md).
+
+A change to the kit that Backstage and the shell both render is released once and pinned by both.
