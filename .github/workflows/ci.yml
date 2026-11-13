@@ -6,8 +6,8 @@ name: CI
 on:
   push:
     branches: [main]
+  # Any base: a stacked PR (WEB-3 on WEB-2) is validated too.
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
