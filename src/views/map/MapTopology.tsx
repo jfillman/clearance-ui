@@ -380,7 +380,17 @@ export function MapLegend() {
   const c = useMapStyles();
   const t = useClearanceTokens();
   const colors = coverageColors(t);
-  const cov: Array<[string, string]> = [['authorized-and-verified', 'verified'], ['observed-not-attributed', 'not attributed'], ['out-of-band-detected', 'out-of-band'], ['coverage-unavailable', 'observer blind'], ['unassessed', 'unassessed']];
+  // Built from COVERAGE_ORDER so the legend names every segment CoverageBar can draw.
+  const short: Record<(typeof COVERAGE_ORDER)[number], string> = {
+    'authorized-and-verified': 'verified',
+    'observed-not-attributed': 'not attributed',
+    'out-of-band-detected': 'out-of-band',
+    'coverage-unavailable': 'observer blind',
+    'break-glass': 'break-glass',
+    'attempted-refused': 'refused',
+    unassessed: 'unassessed',
+  };
+  const cov: Array<[string, string]> = COVERAGE_ORDER.map(k => [k, short[k]]);
   return (
     <div className={c.legend} role="group" aria-label="Legend">
       <span className={c.legendItem}><i className={`${c.swatch} ${c.swatchOk}`} /> all verified</span>

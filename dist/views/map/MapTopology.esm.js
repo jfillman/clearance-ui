@@ -373,7 +373,16 @@ function MapLegend() {
   const c = useMapStyles();
   const t = useClearanceTokens();
   const colors = coverageColors(t);
-  const cov = [["authorized-and-verified", "verified"], ["observed-not-attributed", "not attributed"], ["out-of-band-detected", "out-of-band"], ["coverage-unavailable", "observer blind"], ["unassessed", "unassessed"]];
+  const short = {
+    "authorized-and-verified": "verified",
+    "observed-not-attributed": "not attributed",
+    "out-of-band-detected": "out-of-band",
+    "coverage-unavailable": "observer blind",
+    "break-glass": "break-glass",
+    "attempted-refused": "refused",
+    unassessed: "unassessed"
+  };
+  const cov = COVERAGE_ORDER.map((k) => [k, short[k]]);
   return /* @__PURE__ */ jsxs("div", { className: c.legend, role: "group", "aria-label": "Legend", children: [
     /* @__PURE__ */ jsxs("span", { className: c.legendItem, children: [
       /* @__PURE__ */ jsx("i", { className: `${c.swatch} ${c.swatchOk}` }),
