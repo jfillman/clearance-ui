@@ -13,6 +13,7 @@ import { useClearanceWrite, ControlError } from '../../kit/write.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import { useTierPolicy, tierDefs, tierWhy, TierBadge, tierCountsOf, TierMix, TierFilter, TierKey } from '../../kit/tiers.esm.js';
+import { useOneOpen, ExpandRow } from '../../kit/ExpandRow.esm.js';
 import { ChangeProof } from './ChangeProof.esm.js';
 
 const STATES = [
@@ -38,13 +39,12 @@ function stillNeeds(c) {
   return parts.join(" and ");
 }
 const useStyles = makeStyles(() => ({
-  row: { display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" },
   scroll: { overflowX: "auto" },
   pad: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 12 },
   actions: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
   reason: { flex: "1 1 220px", width: "auto" },
   selectable: { userSelect: "text" },
-  stack: { display: "flex", flexDirection: "column", gap: 16 }
+  stack: { display: "flex", flexDirection: "column", gap: 16, padding: 12 }
 }));
 function needsText(change) {
   if (change.state === "holding") return stillNeeds(change) || "nothing more";
@@ -170,13 +170,26 @@ function ClearanceDetail({ change, onChanged }) {
     }
   );
 }
+function ClearanceDrawer({ id, onChanged }) {
+  const c = useStyles();
+  const api = useClearanceRead();
+  const one = usePoll(`clearance-${id}`, () => api.get(`/v1/clearances/${encodeURIComponent(id)}`), 3e4);
+  if (!one.data) return one.error ? /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx(TabError, { error: one.error, what: "the change", onRetry: one.refresh }) }) : /* @__PURE__ */ jsx(PanelSkeleton, { rows: 3, label: "Loading the change\u2026" });
+  return /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
+    /* @__PURE__ */ jsx(ClearanceDetail, { change: one.data, onChanged: () => {
+      one.refresh();
+      onChanged?.();
+    } }),
+    /* @__PURE__ */ jsx(ChangeProof, { change: one.data })
+  ] });
+}
 function ClearancesView({ app, initial, now: nowProp }) {
   const c = useStyles();
   const tk = useTableKit();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [state, setState] = useState(initial ? "all" : "holding");
-  const [selected, setSelected] = useState(initial);
+  const { open: selected, toggle } = useOneOpen(initial);
   const [tiers, setTiers] = useState([]);
   const { policy, source } = useTierPolicy(app);
   const since = useMemo(() => new Date(Math.floor((now - 24 * 36e5) / 6e4) * 6e4).toISOString(), [now]);
@@ -191,14 +204,15 @@ function ClearancesView({ app, initial, now: nowProp }) {
   const mix = tierCountsOf(tierCounts.data?.items);
   const counts = usePoll(`clearance-counts-${app ?? ""}`, () => api.get("/v1/clearances/counts", { app, by: "state" }), 6e4);
   const byPolicy = usePoll(`clearance-cleared-by-${app ?? ""}`, () => api.get("/v1/clearances/counts", { app, by: "cleared_by", state: "cleared" }), 6e4);
-  const one = usePoll(`clearance-${selected ?? ""}`, () => selected ? api.get(`/v1/clearances/${encodeURIComponent(selected)}`) : Promise.resolve(void 0), 3e4);
+  const linked = usePoll(`clearance-linked-${initial ?? ""}`, () => initial ? api.get(`/v1/clearances/${encodeURIComponent(initial)}`).catch(() => void 0) : Promise.resolve(void 0), 0);
   const count = (k) => counts.data?.items.find((i) => i.key === k)?.count ?? 0;
-  const items = list.data?.items ?? [];
+  const listed = list.data?.items ?? [];
+  const pinned = initial && list.data && linked.data && !listed.some((ch) => ch.id === initial) ? linked.data : void 0;
+  const items = pinned ? [pinned, ...listed] : listed;
   const refresh = () => {
     tierCounts.refresh();
     list.refresh();
     counts.refresh();
-    one.refresh();
     byPolicy.refresh();
   };
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -212,61 +226,55 @@ function ClearancesView({ app, initial, now: nowProp }) {
         /* @__PURE__ */ jsx(TierMix, { counts: mix })
       ] })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: c.row, children: [
-      /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Changes", title: "Changes", count: `${items.length} shown`, style: { flex: "1.2 1 520px" }, children: [
-        /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsxs(FilterBar, { children: [
-          /* @__PURE__ */ jsx(FilterChips, { label: "State", options: STATES, value: state, onChange: setState }),
-          /* @__PURE__ */ jsx(TierFilter, { value: tiers, onChange: setTiers, policy, source, counts: mix })
-        ] }) }),
-        /* @__PURE__ */ jsx(TierKey, { policy, counts: mix }),
-        list.error && !list.data && /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx(TabError, { error: list.error, what: "changes", onRetry: list.refresh }) }),
-        list.loading && !list.data && /* @__PURE__ */ jsx(PanelSkeleton, { rows: 4, label: "Loading\u2026" }),
-        list.data && items.length === 0 && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
-          "No ",
-          state === "all" ? "" : `${state} `,
-          tiers.length ? `tier ${tiers.join(", ")} ` : "",
-          "changes",
-          app ? ` for ${app}` : "",
-          ". The clearance-gate check registers a change on every release PR to a protected environment."
-        ] }),
-        items.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
-          /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Change" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tier" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "State" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Needs" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Updated" })
-          ] }) }),
-          /* @__PURE__ */ jsx("tbody", { children: items.map((ch) => /* @__PURE__ */ jsxs("tr", { className: `${tk.rowLink} ${ch.id === selected ? tk.rowSelected : ""}`, "aria-selected": ch.id === selected, tabIndex: 0, onClick: () => setSelected(ch.id), onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && setSelected(ch.id), children: [
-            /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
-              /* @__PURE__ */ jsx("b", { children: ch.app }),
-              " \xB7 ",
-              ch.env,
-              /* @__PURE__ */ jsxs("div", { className: tk.meta, children: [
-                ch.id,
-                " \xB7 ",
-                ch.target,
-                " \xB7 ",
-                shortPrincipal(ch.proposer)
-              ] })
-            ] }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsxs(TierBadge, { tier: ch.tier, change: ch, policy, children: [
-              "T",
-              ch.tier
-            ] }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: stateTone(ch.state), dot: ch.state === "holding", children: ch.state }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: ch.state === "holding" ? stillNeeds(ch) : ch.cleared_by ?? "" }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: dateTime(ch.updated_at), children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: relativeTime(ch.updated_at, now) }) }) })
-          ] }, ch.id)) })
-        ] }) })
+    /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Changes", title: "Changes", count: `${items.length} shown`, children: [
+      /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsxs(FilterBar, { children: [
+        /* @__PURE__ */ jsx(FilterChips, { label: "State", options: STATES, value: state, onChange: setState }),
+        /* @__PURE__ */ jsx(TierFilter, { value: tiers, onChange: setTiers, policy, source, counts: mix })
+      ] }) }),
+      /* @__PURE__ */ jsx(TierKey, { policy, counts: mix }),
+      list.error && !list.data && /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx(TabError, { error: list.error, what: "changes", onRetry: list.refresh }) }),
+      list.loading && !list.data && /* @__PURE__ */ jsx(PanelSkeleton, { rows: 4, label: "Loading\u2026" }),
+      list.data && items.length === 0 && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
+        "No ",
+        state === "all" ? "" : `${state} `,
+        tiers.length ? `tier ${tiers.join(", ")} ` : "",
+        "changes",
+        app ? ` for ${app}` : "",
+        ". The clearance-gate check registers a change on every release PR to a protected environment."
       ] }),
-      /* @__PURE__ */ jsx("div", { style: { flex: "1 1 440px", minWidth: 0 }, children: one.data ? /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
-        /* @__PURE__ */ jsx(ClearanceDetail, { change: one.data, onChanged: refresh }),
-        /* @__PURE__ */ jsx(ChangeProof, { change: one.data })
-      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, title: "Change", children: /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: one.error ?? "Select a change to see why it has its tier, what it binds to, and to clear or deny it." }) }) })
+      items.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
+        /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
+          /* @__PURE__ */ jsx("th", { className: tk.th, children: "Change" }),
+          /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tier" }),
+          /* @__PURE__ */ jsx("th", { className: tk.th, children: "State" }),
+          /* @__PURE__ */ jsx("th", { className: tk.th, children: "Needs" }),
+          /* @__PURE__ */ jsx("th", { className: tk.th, children: "Updated" })
+        ] }) }),
+        /* @__PURE__ */ jsx("tbody", { children: items.map((ch) => /* @__PURE__ */ jsxs(ExpandRow, { id: `change-${ch.id}`, open: ch.id === selected, onToggle: () => toggle(ch.id), colSpan: 5, label: `Change ${ch.id} detail`, details: /* @__PURE__ */ jsx(ClearanceDrawer, { id: ch.id, onChanged: refresh }), children: [
+          /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
+            /* @__PURE__ */ jsx("b", { children: ch.app }),
+            " \xB7 ",
+            ch.env,
+            /* @__PURE__ */ jsxs("div", { className: tk.meta, children: [
+              ch.id,
+              " \xB7 ",
+              ch.target,
+              " \xB7 ",
+              shortPrincipal(ch.proposer)
+            ] })
+          ] }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsxs(TierBadge, { tier: ch.tier, change: ch, policy, children: [
+            "T",
+            ch.tier
+          ] }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: stateTone(ch.state), dot: ch.state === "holding", children: ch.state }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: ch.state === "holding" ? stillNeeds(ch) : ch.cleared_by ?? "" }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: dateTime(ch.updated_at), children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: relativeTime(ch.updated_at, now) }) }) })
+        ] }, ch.id)) })
+      ] }) })
     ] })
   ] });
 }
 
-export { ClearanceDetail, ClearancesView, stateTone, stillNeeds };
+export { ClearanceDetail, ClearanceDrawer, ClearancesView, stateTone, stillNeeds };
 //# sourceMappingURL=ClearancesView.esm.js.map

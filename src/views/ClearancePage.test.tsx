@@ -87,13 +87,15 @@ it('lists records, opens one field by field, filters, and loads more', async () 
     fireEvent.click(rows[1]);
   });
   const detail = screen.getByRole('region', { name: 'Record detail' });
+  expect(rows[1].nextElementSibling!.contains(detail)).toBe(true); // inline, directly under its row
   expect(within(detail).getByText('Record 9')).toBeTruthy();
   expect(within(detail).getAllByText('.tekton/** is a baseline deny path').length).toBeGreaterThan(0);
   expect(within(detail).getAllByText('verified').length).toBeGreaterThan(0);
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
   });
-  expect(within(screen.getByRole('region', { name: 'Records' })).getAllByRole('row')).toHaveLength(4);
+  // header, 3 records, and the opened record's details row
+  expect(within(screen.getByRole('region', { name: 'Records' })).getAllByRole('row')).toHaveLength(5);
   expect(calls.some(p => p.includes('after=8'))).toBe(true);
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'deny' }));

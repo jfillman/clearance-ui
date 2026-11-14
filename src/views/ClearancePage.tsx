@@ -46,7 +46,7 @@ export function ClearancePage() {
         {view === 'evidence' && <EvidenceView initialApp={params.get('app') ?? undefined} />}
         {view === 'exceptions' && <ExceptionsView initialScope={params.get('scope') ?? undefined} />}
         {view === 'map' && <MapTab target={params.get('target') ?? undefined} onOpenTarget={id => setParams(id ? { view: 'map', target: id } : { view: 'map' })} onNavigate={p => setParams(p)} />}
-        {view === 'attestations' && <AttestationsView onOpenChange={id => setParams({ view: 'clearances', change: id })} />}
+        {view === 'attestations' && <AttestationsView initial={params.get('change') ?? undefined} onOpenChange={id => setParams({ view: 'clearances', change: id })} />}
         {view === 'policy' && <PolicyView />}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import {
@@ -8,6 +8,7 @@ import {
   dateTime,
   DEFAULT_PAGE_SIZE,
   EmptyNote,
+  ExpandRow,
   FilterBar,
   FilterChips,
   FilterSelect,
@@ -23,17 +24,18 @@ import {
     Tooltip,
   useClearanceRead,
   useMountedNow,
+  useOneOpen,
   usePoll,
   useTableKit,
   type AttestationConfig,
   type AttestationRow,
   type Page,
 } from '../../kit';
+import { AttestationDetail } from './AttestationDetail';
 import { cursorOf, rekorUrl, RekorIndex, shortDigest, verifiableOf, verifyDisplay, VerifyChip } from '../clearances/ChangeProof';
 
 // Attestations (board C13): every signed statement that Clearance cleared a change and a deploy applied it, newest first,
-// with the Rekor entry that proves when (clearance docs/clearance-api.md "Change history and attestations"). A row opens
-// its change. "verified" appears only where the server's last verify answer said so; a Clearance with no trust
+// with the Rekor entry that proves when (clearance docs/clearance-api.md "Change history and attestations"). A row opens inline (AttestationDetail); the change is a link in it. "verified" appears only where the server's last verify answer said so; a Clearance with no trust
 // configured says "signed (recorded)".
 
 export type Window = '24h' | '7d' | '30d';
@@ -74,7 +76,7 @@ const useStyles = makeStyles<Theme>(() => ({
 
 type CountItems = { items: Array<{ key: string | null; count: number }>; total?: number };
 
-export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number; onOpenChange?: (changeId: string) => void }) {
+export function AttestationsView({ now: nowProp, onOpenChange, initial }: { now?: number; onOpenChange?: (changeId: string) => void; initial?: string }) {
   const c = useStyles();
   const tk = useTableKit();
   const api = useClearanceRead();
@@ -84,6 +86,8 @@ export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number;
   const [env, setEnv] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const { open, toggle, close, set: setOpen } = useOneOpen<number>();
+  const linked = useRef(initial); // a deep link (?change=<id>) opens its row once the rows are loaded, then is spent
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const since = useMemo(() => windowSince(now, win), [now, win]);
   const key = `${since}|${app}|${env}`;
@@ -101,7 +105,8 @@ export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number;
     setExtra([]);
     setAfter(undefined);
     setPage(0);
-  }, [key]);
+    close();
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = [...(first.data?.items ?? []), ...extra];
   const next = cursorOf(after, first.data?.next);
   const loadOlder = async () => {
@@ -120,6 +125,15 @@ export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number;
   };
 
   const shown = searchRows(rows, query);
+  useEffect(() => {
+    if (!linked.current) return;
+    const at = shown.findIndex(r => r.change_id === linked.current);
+    if (at < 0) return;
+    linked.current = undefined;
+    setPage(Math.floor(at / pageSize));
+    setOpen(shown[at].record_seq);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [first.data, extra]);
   const slice = pageSlice(shown, page, pageSize);
   const count = (k: string) => counts.data?.items.find(i => i.key === k)?.count ?? 0;
   const verifiable = verifiableOf(config);
@@ -160,7 +174,7 @@ export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number;
                 {slice.rows.map(r => {
                   const url = rekorUrl(config.data, r.rekor_log_index);
                   return (
-                    <tr key={r.record_seq} className={tk.rowLink} tabIndex={0} aria-label={`Open change ${r.change_id}`} onClick={() => onOpenChange?.(r.change_id)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onOpenChange?.(r.change_id)}>
+                    <ExpandRow key={r.record_seq} id={`attestation-${r.record_seq}`} open={open === r.record_seq} onToggle={() => toggle(r.record_seq)} colSpan={9} label={`Attestation for change ${r.change_id}`} details={<AttestationDetail row={r} onOpenChange={onOpenChange} />}>
                       <td className={tk.td}><b>{r.app}</b></td>
                       <td className={tk.td}><span className={tk.meta}>{r.env}</span></td>
                       <td className={tk.td}><span className={tk.meta}>{r.change_id}</span></td>
@@ -172,7 +186,7 @@ export function AttestationsView({ now: nowProp, onOpenChange }: { now?: number;
                       </td>
                       <td className={tk.td}><span className={tk.meta}>{r.key_id || 'keyless'}</span></td>
                       <td className={tk.td}><VerifyChip display={verifyDisplay({ verifiable, brief: r.verification })} /></td>
-                    </tr>
+                    </ExpandRow>
                   );
                 })}
               </tbody>

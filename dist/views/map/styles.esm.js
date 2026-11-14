@@ -9,6 +9,7 @@ import 'react/jsx-runtime';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import '../../kit/ExpandRow.esm.js';
 
 const POP_W = 272;
 const useMapStyles = makeStyles((theme) => {
