@@ -1,6 +1,6 @@
 {
   "name": "@jfillman/clearance-ui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The Clearance web UI as a package: the design kit, the ClearanceTransport seam and the host-agnostic views (Clearances, Evidence, Exceptions, Attestations, Map, Policy). No @backstage/* import: a host supplies the transport. Backstage's plugin and the standalone shell in app/ are the two hosts.",
   "license": "Apache-2.0",
   "packageManager": "yarn@4.13.0",
