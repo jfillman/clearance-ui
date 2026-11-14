@@ -73,3 +73,13 @@ it('a deep link opens its row on first render and scrolls to it', () => {
   expect(screen.getByLabelText('field c')).toBeTruthy();
   expect(scroll).toHaveBeenCalledTimes(1);
 });
+
+it('the details cell cancels the table kit\'s td:first-child / td:last-child padding (a colSpan cell is both), so the panel is as wide as the row', () => {
+  render(<Table initial="a" />);
+  const cell = screen.getByRole('region', { name: 'Details a' });
+  // jsdom does not cascade pseudo-classes, so read the generated rules: the drawer class must reset both edges.
+  const css = Array.from(document.querySelectorAll('style')).map(st => st.textContent ?? '').join('\n');
+  const drawer = cell.className.split(/\s+/).find(k => k.includes('drawer'))!;
+  expect(css).toMatch(new RegExp(`\\.${drawer}:first-child[^{]*\\{[^}]*padding: 0`));
+  expect(css).toMatch(new RegExp(`\\.${drawer}:last-child[^{]*\\{[^}]*padding: 0`));
+});

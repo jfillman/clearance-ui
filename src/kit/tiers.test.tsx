@@ -91,3 +91,20 @@ it('the mix bar sizes segments by share and names the counts for a screen reader
   const widths = Array.from(bar.children).map(c => (c as HTMLElement).style.width);
   expect(widths).toEqual(['60%', '20%', '20%']);
 });
+
+it('the popover is rendered outside a clipping container (a framed Section has overflow hidden), so a short table cannot cut it off', () => {
+  render(
+    <section style={{ overflow: 'hidden', height: 40 }} aria-label="clip">
+      <TierFilter value={[]} onChange={() => {}} />
+    </section>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: /all/ }));
+  const dlg = screen.getByRole('dialog', { name: 'Change tiers' });
+  expect(screen.getByRole('region', { name: 'clip' }).contains(dlg)).toBe(false);
+  expect(document.body.contains(dlg)).toBe(true);
+  // A click inside the popover is not "outside": it stays open; a click elsewhere closes it.
+  fireEvent.mouseDown(within(dlg).getByRole('checkbox', { name: 'Tier 2: Runtime shape' }));
+  expect(screen.queryByRole('dialog')).not.toBeNull();
+  fireEvent.mouseDown(document.body);
+  expect(screen.queryByRole('dialog')).toBeNull();
+});

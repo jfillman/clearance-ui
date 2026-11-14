@@ -428,18 +428,16 @@ export const useTiers = makeStyles<Theme>(theme => {
   const t = tokensForTheme(theme);
   return {
   anchor: { position: 'relative', display: 'inline-block' },
+  // Rendered in a Popper (a portal on <body>), so no framed Section's overflow clips it; the Popper positions it.
   popover: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
     marginTop: 6,
     width: 'min(560px, calc(100vw - 48px))',
+    maxHeight: 'calc(100vh - 24px)',
+    overflowY: 'auto',
     backgroundColor: t.panel,
     border: `1px solid ${t.line}`,
     borderRadius: 8,
     boxShadow: '0 16px 40px rgba(0,0,0,0.28)',
-    zIndex: 10,
-    overflow: 'hidden',
   },
   popHead: { padding: '12px 14px', borderBottom: `1px solid ${t.line}`, display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' },
   popTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: s.lg, color: t.textHi, margin: 0 },

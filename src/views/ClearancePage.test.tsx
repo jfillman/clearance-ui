@@ -150,7 +150,7 @@ it('without a clock prop, loads once, settles, and a row opens (the 2026-10-31 "
   expect(evidenceCalls()).toBe(2);
 });
 
-it('without a clock prop, the Policy page shows the rules and the registry and polls hits once', async () => {
+it('without a clock prop, the Policy page shows the rules and the tool rules and polls hits once', async () => {
   await act(async () => {
     render(<PolicyView />);
   });
@@ -158,11 +158,11 @@ it('without a clock prop, the Policy page shows the rules and the registry and p
   expect(within(screen.getByRole('region', { name: 'Deny rules' })).getAllByRole('row').length).toBeGreaterThan(1);
   expect(calls.filter(p => p.startsWith('/v1/policy')).length).toBe(1);
   expect(calls.filter(p => p.startsWith('/v1/evidence/counts')).length).toBe(1);
-  fireEvent.click(screen.getByRole('button', { name: /Tool registry/ }));
-  expect(within(screen.getByRole('region', { name: 'Tool registry' })).getByText('metrics.query')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Tool rules/ }));
+  expect(within(screen.getByRole('region', { name: 'Tool rules' })).getByText('metrics.query')).toBeTruthy();
 });
 
-it('shows the rules in order with hits, the registry, and a dry run with its path', async () => {
+it('shows the rules in order with hits, the tool rules, and a dry run with its path', async () => {
   await act(async () => {
     render(<PolicyView now={NOW} />);
   });
@@ -175,8 +175,8 @@ it('shows the rules in order with hits, the registry, and a dry run with its pat
     fireEvent.click(rows[2]);
   });
   expect(within(rules).getByText('Stay inside the allowed paths.')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /Tool registry/ }));
-  expect(within(screen.getByRole('region', { name: 'Tool registry' })).getByText('propose only: a person merges')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Tool rules/ }));
+  expect(within(screen.getByRole('region', { name: 'Tool rules' })).getByText('propose only: a person merges')).toBeTruthy();
 
   const ex = screen.getByRole('region', { name: 'Would this be allowed?' });
   const run = within(ex).getByRole('button', { name: 'Run dry run' }) as HTMLButtonElement;

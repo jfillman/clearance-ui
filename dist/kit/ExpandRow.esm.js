@@ -5,7 +5,8 @@ import { useTableKit } from './kit.esm.js';
 
 const useStyles = makeStyles(() => ({
   // The details cell carries its own padding (a Section, or a padded body).
-  drawer: { padding: 0 }
+  // Must outrank the table kit's `td:first-child` / `td:last-child` padding (a colSpan cell is both), or the panel is 36px wider than the row.
+  drawer: { padding: 0, "&:first-child, &:last-child": { padding: 0 } }
 }));
 function useOneOpen(initial) {
   const [open, set] = useState(initial);

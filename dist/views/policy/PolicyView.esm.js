@@ -11,6 +11,7 @@ import '../../kit/transport.esm.js';
 import { useClearanceRead } from '../../kit/read.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
+import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 
@@ -44,7 +45,7 @@ function PolicyView({ now: nowProp }) {
       {
         label: "Policy sections",
         hideLabel: true,
-        options: [{ id: "rules", label: "Runtime rules", count: rules.length || void 0 }, { id: "tools", label: "Tool registry", count: tools.length || void 0 }],
+        options: [{ id: "rules", label: "Runtime rules", count: rules.length || void 0 }, { id: "tools", label: "Tool rules", count: tools.length || void 0 }],
         value: sub,
         onChange: setSub
       }
@@ -84,7 +85,7 @@ function PolicyView({ now: nowProp }) {
             ] }, r.id);
           }) })
         ] }) })
-      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool registry", title: "Tool registry", meta: /* @__PURE__ */ jsx(Count, { children: "what an agent may be granted; the tier is the authority a call needs" }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
+      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tool" }),
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tier" }),

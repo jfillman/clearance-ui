@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Popper from '@material-ui/core/Popper';
 import { Button, Checkbox, Chip, FilterChip, FilterGroup, StatusChip, Tooltip, type Tone } from './kit';
 import { tierTone } from './components';
 import { useTiers } from './kitStyles';
@@ -213,10 +214,16 @@ export function TierFilter({ value, onChange, policy, source, counts }: { value:
   const c = useTiers();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  // The popover is portalled to <body> (a framed Section clips its overflow, and a short table would cut it off), so it is
+  // outside `root` in the DOM: a click inside either one is not "outside".
+  const pop = useRef<HTMLDivElement>(null);
   const defs = useMemo(() => tierDefs(policy), [policy]);
   useEffect(() => {
     if (!open) return undefined;
-    const outside = (e: MouseEvent) => root.current && !root.current.contains(e.target as Node) && setOpen(false);
+    const outside = (e: MouseEvent) => {
+      const n = e.target as Node;
+      if (root.current && !root.current.contains(n) && !pop.current?.contains(n)) setOpen(false);
+    };
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', outside);
     document.addEventListener('keydown', esc);
@@ -231,8 +238,8 @@ export function TierFilter({ value, onChange, policy, source, counts }: { value:
       <FilterGroup label="Tier">
         <FilterChip on={value.length > 0} expanded={open} onClick={() => setOpen(!open)}>{value.length ? [...value].sort().join(', ') : 'all'} ▾</FilterChip>
       </FilterGroup>
-      {open && (
-        <div className={c.popover} role="dialog" aria-label="Change tiers">
+      <Popper open={open} anchorEl={root.current} placement="bottom-start" style={{ zIndex: 1300 }} modifiers={{ flip: { enabled: true }, preventOverflow: { enabled: true, boundariesElement: 'viewport' } }}>
+        <div className={c.popover} role="dialog" aria-label="Change tiers" ref={pop}>
           <div className={c.popHead}>
             <h3 className={c.popTitle}>Change tiers</h3>
             <span className={c.popSub}>How much a change can hurt, set by what it touches. Tick tiers to filter the list.</span>
@@ -263,7 +270,7 @@ export function TierFilter({ value, onChange, policy, source, counts }: { value:
             {TIER_FLOOR_NOTE} {source === 'policy' ? `Showing the policy in force${policy?.version ? ` (${policy.version})` : ''}.` : 'Showing the gate\'s baseline.'}
           </div>
         </div>
-      )}
+      </Popper>
     </div>
   );
 }

@@ -135,3 +135,17 @@ it('a deep link opens its change inline even when the list does not hold it', as
   expect(detail.closest('table')).toBeTruthy();
   expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 });
+
+it('the Objects table gives Object and Change their room: Change never wraps, and Object has a minimum width', async () => {
+  await act(async () => {
+    render(<ClearancesView now={NOW} initial="ch-1" />);
+  });
+  const table = await screen.findByRole('table', { name: 'Objects this change touches' });
+  const heads = within(table).getAllByRole('columnheader');
+  expect(heads.map(h => h.textContent)).toEqual(['Object', 'Change', 'Fields']);
+  const [obj, op, fields] = heads.map(h => getComputedStyle(h));
+  expect(op.whiteSpace).toBe('nowrap');
+  expect(op.width).toBe('1%');
+  expect(obj.width).toBe('48%');
+  expect(fields.width).toBe('51%');
+});

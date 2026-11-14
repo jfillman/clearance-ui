@@ -44,6 +44,11 @@ const useStyles = makeStyles(() => ({
   actions: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
   reason: { flex: "1 1 220px", width: "auto" },
   selectable: { userSelect: "text" },
+  // The Objects table: Object and Change get the room; Fields takes what is left. Without widths the browser sizes the
+  // columns by their longest unbroken text, and a long field list or image ref squeezes Object and Change into wraps.
+  colObject: { width: "48%", minWidth: 240 },
+  colChange: { width: "1%", whiteSpace: "nowrap" },
+  colFields: { width: "51%", minWidth: 160 },
   stack: { display: "flex", flexDirection: "column", gap: 16, padding: 12 }
 }));
 function needsText(change) {
@@ -133,9 +138,9 @@ function ClearanceDetail({ change, onChanged }) {
         ] }),
         /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, "aria-label": "Objects this change touches", children: [
           /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Object" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Change" }),
-            /* @__PURE__ */ jsx("th", { className: tk.th, children: "Fields" })
+            /* @__PURE__ */ jsx("th", { className: `${tk.th} ${c.colObject}`, children: "Object" }),
+            /* @__PURE__ */ jsx("th", { className: `${tk.th} ${c.colChange}`, children: "Change" }),
+            /* @__PURE__ */ jsx("th", { className: `${tk.th} ${c.colFields}`, children: "Fields" })
           ] }) }),
           /* @__PURE__ */ jsx("tbody", { children: change.objects.slice(0, 100).map((o) => {
             const why = change.reasons.find((r) => r.subject === `${o.kind} ${o.namespace ? `${o.namespace}/` : ""}${o.name}`);
@@ -157,7 +162,7 @@ function ClearanceDetail({ change, onChanged }) {
                   ] })
                 ] })
               ] }),
-              /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: o.op }) }),
+              /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.colChange}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: o.op }) }),
               /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
                 o.fields.slice(0, 6).join(", "),
                 o.fields.length > 6 ? ` +${o.fields.length - 6}` : "",

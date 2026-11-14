@@ -27,7 +27,7 @@ import {
   type StatusTone,
 } from '../../kit';
 
-// Policy (board C3): the deny rules in evaluation order with their 7-day hits and pack, the tool registry, and
+// Policy (board C3): the deny rules in evaluation order with their 7-day hits and pack, the per-tool rules, and
 // "would this be allowed?", a dry run of the real policy (GET /v1/policy/explain; nothing recorded). Read-only: a
 // rule change is a Clearance release, a definition change is a PR.
 
@@ -101,7 +101,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
         <FilterChips
           label="Policy sections"
           hideLabel
-          options={[{ id: 'rules' as Sub, label: 'Runtime rules', count: rules.length || undefined }, { id: 'tools' as Sub, label: 'Tool registry', count: tools.length || undefined }]}
+          options={[{ id: 'rules' as Sub, label: 'Runtime rules', count: rules.length || undefined }, { id: 'tools' as Sub, label: 'Tool rules', count: tools.length || undefined }]}
           value={sub}
           onChange={setSub}
         />
@@ -135,7 +135,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
             )}
           </Section>
         ) : (
-          <Section framed aria-label="Tool registry" title="Tool registry" meta={<Count>what an agent may be granted; the tier is the authority a call needs</Count>} count={`${tools.length} tools`} style={{ flex: '1.5 1 600px' }}>
+          <Section framed aria-label="Tool rules" title="Tool rules" meta={<Count>What Clearance checks for each tool. The tools themselves are served by the gateway.</Count>} count={`${tools.length} tools`} style={{ flex: '1.5 1 600px' }}>
             {tools.length > 0 && (
               <div className={c.scroll}>
                 <table className={tk.table}>

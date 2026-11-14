@@ -10,6 +10,7 @@ import '../kit/transport.esm.js';
 import { ProductMark } from '../kit/ProductMark.esm.js';
 import { CoverageStrip } from '../kit/coverage.esm.js';
 import '../kit/Pager.esm.js';
+import '@material-ui/core/Popper';
 import '../kit/kitStyles.esm.js';
 import '../kit/ExpandRow.esm.js';
 import { EvidenceView } from './evidence/EvidenceView.esm.js';

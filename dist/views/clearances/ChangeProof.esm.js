@@ -11,6 +11,7 @@ import '../../kit/transport.esm.js';
 import { useClearanceRead, ReadError } from '../../kit/read.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
+import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
 
