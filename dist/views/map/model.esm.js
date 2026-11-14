@@ -8,6 +8,7 @@ const WINDOWS = [
 ];
 const MATRIX_THRESHOLD = 40;
 const ROW_CAP = 12;
+const CORE_INSET = 44;
 const GATE = { x: 0, w: 232, minH: 100, gap: 14 };
 const GROUP = { w: 270, minHead: 92, row: 46, pad: 10, gap: 16 };
 const OBSERVER = { w: 160, minH: 84, gap: 14 };
@@ -83,7 +84,7 @@ function buildTopology(map, filters, expanded) {
   let y = TOP;
   const guardEdges = usable.filter((e) => e.edge.kind === "guards");
   const watchEdges = usable.filter((e) => e.edge.kind === "watches");
-  const gutterA = Math.min(260, Math.max(150, 60 + guardEdges.length * 12));
+  const gutterA = Math.min(360, Math.max(240, 2 * CORE_INSET + 80 + guardEdges.length * 12));
   const gutterB = Math.min(200, Math.max(110, 50 + watchEdges.length * 10));
   const groupX = GATE.x + GATE.w + gutterA;
   const observerX = groupX + GROUP.w + gutterB;
@@ -176,7 +177,7 @@ function buildTopology(map, filters, expanded) {
   const guards = resolved.filter((r) => r.edge.kind === "guards");
   const watches = resolved.filter((r) => r.edge.kind === "watches");
   const pad = 14;
-  assignLanes(guards.map((r) => ({ xs: gate.x0, sy: attachSrc.get(r.index), xe: gate.x1, ty: attachDst.get(r.index) })), gate.x0 + pad, gate.x1 - pad).forEach((x, i) => laneFor.set(guards[i].index, x));
+  assignLanes(guards.map((r) => ({ xs: gate.x0, sy: attachSrc.get(r.index), xe: gate.x1, ty: attachDst.get(r.index) })), gate.x0 + CORE_INSET + pad, gate.x1 - CORE_INSET - pad).forEach((x, i) => laneFor.set(guards[i].index, x));
   assignLanes(watches.map((r) => ({ xs: watch.x1, sy: attachSrc.get(r.index), xe: watch.x0, ty: attachDst.get(r.index) })), watch.x0 + pad, watch.x1 - pad).forEach((x, i) => laneFor.set(watches[i].index, x));
   const edges = resolved.map((r) => {
     const g = r.edge.kind === "guards";
@@ -226,7 +227,7 @@ function buildTopology(map, filters, expanded) {
     width: observerX + OBSERVER.w,
     height,
     columns,
-    core: { x: gate.x0 + 6, y: TOP - 8, w: gate.x1 - gate.x0 - 12, h: height - TOP + 8 },
+    core: { x: gate.x0 + CORE_INSET, y: TOP - 8, w: gate.x1 - gate.x0 - 2 * CORE_INSET, h: height - TOP + 8 },
     gates,
     groups,
     observers,
