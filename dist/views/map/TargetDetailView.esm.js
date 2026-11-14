@@ -14,6 +14,7 @@ import { useMap, EmptyRegistry, WindowChips } from './MapView.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { useClock, statusWord, statusTone, ModeChip, CoverageMix } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';
+import { gateName } from './model.esm.js';
 
 const OBSERVER_TONE = { healthy: "ok", degraded: "warn", blind: "bad" };
 function ageWords(seconds) {
@@ -95,7 +96,7 @@ function TargetDetailView({ id, win, onWindow, onBack, onNavigate }) {
   const blind = node.observers.some((o) => o.state === "blind");
   const evidenceParams = { view: "evidence", ...node.app ? { app: node.app } : {} };
   const exceptionParams = { view: "exceptions", ...node.scope ? { scope: node.scope } : {} };
-  const laneRows = node.gates.map((g) => ({ key: g.instance, label: g.type, sub: g.instance, mode: g.mode, silent: g.silent, lanes: g.lanes, holding: g.holding, refused: g.refused, blind }));
+  const laneRows = node.gates.map((g) => ({ key: g.instance, label: gateName(g.type), sub: g.instance, mode: g.mode, silent: g.silent, lanes: g.lanes, holding: g.holding, refused: g.refused, blind }));
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     back,
     /* @__PURE__ */ jsxs("div", { className: c.detailTitle, children: [
@@ -136,7 +137,7 @@ function TargetDetailView({ id, win, onWindow, onBack, onNavigate }) {
       ] }), children: node.gates.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No gate is declared for this target: changes reach it unchecked." }) : /* @__PURE__ */ jsx("ul", { className: c.listRows, children: node.gates.map((g) => /* @__PURE__ */ jsxs("li", { className: c.listRow, children: [
         /* @__PURE__ */ jsx(ModeChip, { mode: g.mode, silent: g.silent }),
         /* @__PURE__ */ jsxs("div", { className: c.grow, children: [
-          /* @__PURE__ */ jsx("span", { className: c.rowName, children: g.type }),
+          /* @__PURE__ */ jsx("span", { className: c.rowName, children: gateName(g.type) }),
           /* @__PURE__ */ jsxs("span", { className: c.rowMeta, children: [
             g.instance,
             g.attributed ? "" : " \xB7 records not attributed to this target"

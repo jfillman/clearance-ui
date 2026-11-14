@@ -1,4 +1,4 @@
-import { buildMatrix, buildTopology, edgeWidth, gateWords, groupsOf, MATRIX_THRESHOLD, NO_FILTERS, registryEmpty, registryTiers, ROW_CAP, soleTarget, targetMatches, visibleAttention } from './model';
+import { withGateNames, buildMatrix, buildTopology, edgeWidth, gateWords, groupsOf, MATRIX_THRESHOLD, NO_FILTERS, registryEmpty, registryTiers, ROW_CAP, soleTarget, targetMatches, visibleAttention } from './model';
 import { fixture, liveFixture, scaledFixture, target } from './testFixture';
 import { segHitsRect, segments, segsCross } from './layout';
 import type { MapResponse } from './types';
@@ -18,11 +18,15 @@ describe('the Map layout model', () => {
   });
 
   it('names every gate type in words, with what it guards, and keeps an unknown one as it is', () => {
-    expect(gateWords('glidepath')).toEqual({ name: 'Glidepath clearance-gate', kind: 'PR check' });
-    expect(gateWords('g-argo').name).toBe('G-ARGO');
+    expect(gateWords('glidepath')).toEqual({ name: 'Pull request gate', kind: 'Glidepath check' });
+    expect(gateWords('g-argo')).toEqual({ name: 'Sync gate', kind: 'Argo CD' });
+    expect(gateWords('g-tf')).toEqual({ name: 'Plan gate', kind: 'Terraform' });
+    expect(gateWords('autopilot')).toEqual({ name: 'Tool call gate', kind: 'Autopilot' });
+    expect(gateWords('github')).toEqual({ name: 'Deployment gate', kind: 'GitHub' });
+    expect(withGateNames('g-argo on hangar-prod, not g-argo-prod', 'g-argo')).toBe('Sync gate on hangar-prod, not g-argo-prod');
     expect(gateWords('mystery')).toEqual({ name: 'mystery', kind: 'gate' });
     const topo = buildTopology(fixture(), NO_FILTERS, []);
-    expect(topo.gates.map(g => g.name)).toEqual(['Glidepath clearance-gate', 'G-ARGO', 'G-TF']);
+    expect(topo.gates.map(g => g.name)).toEqual(['Pull request gate', 'Sync gate', 'Plan gate']);
   });
 
   it('an edge is orthogonal and its width follows its decisions: more volume is thicker, none is the thinnest', () => {
@@ -75,7 +79,8 @@ describe('the Map layout model', () => {
     expect(hp.rows.map(r => r.target.id)).toEqual(['flight-api-prod']);
     expect(topo.groups.find(g => g.node.group === 'aws')!.dim).toBe(true);
     expect(topo.gates.find(g => g.node.type === 'g-tf')!.dim).toBe(true);
-    expect(targetMatches(fixture().nodes.targets[0], 'g-argo')).toBe(true); // by the gate on it
+    expect(targetMatches(fixture().nodes.targets[0], 'g-argo')).toBe(true); // by the gate on it, by its id
+    expect(targetMatches(fixture().nodes.targets[0], 'sync gate')).toBe(true); // and by the name shown
   });
 
   it('the registry filter removes groups and gate types that no remaining target belongs to', () => {

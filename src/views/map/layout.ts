@@ -141,20 +141,3 @@ export function assignLanes(routes: Route[], x0: number, x1: number): number[] {
   });
   return out;
 }
-
-export interface Box {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/**
- * Where a popover sits so that it never covers the node it describes: to its right, else its left, else below it.
- * Coordinates are in the diagram's own box, in CSS pixels.
- */
-export function placePopover(anchor: Box, canvasWidth: number, popWidth: number, gap = 10): { left: number; top: number; side: 'right' | 'left' | 'below' } {
-  if (anchor.right + gap + popWidth <= canvasWidth) return { left: anchor.right + gap, top: anchor.top, side: 'right' };
-  if (anchor.left - gap - popWidth >= 0) return { left: anchor.left - gap - popWidth, top: anchor.top, side: 'left' };
-  return { left: Math.max(0, Math.min(anchor.left, canvasWidth - popWidth)), top: anchor.bottom + gap, side: 'below' };
-}

@@ -19,6 +19,12 @@ const WEEK_MS = 7 * 864e5;
 const useStyles = makeStyles(() => ({
   row: { display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" },
   scroll: { overflowX: "auto" },
+  // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
+  // own column instead of widening the table past the panel (the holder above is only a fallback for very narrow panels).
+  fixed: { tableLayout: "fixed" },
+  wrap: { overflowWrap: "anywhere", minWidth: 0 },
+  // Chip is nowrap by default; a tool name is the one value long enough to need to wrap (doubled class beats the chip's own).
+  wrapChip: { "&&": { whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.35, textAlign: "left", maxWidth: "100%" } },
   pad: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 10 },
   path: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   verdict: { display: "flex", flexDirection: "column", gap: 6 },
@@ -85,7 +91,14 @@ function PolicyView({ now: nowProp }) {
             ] }, r.id);
           }) })
         ] }) })
-      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
+      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: `${tk.table} ${c.fixed}`, "data-testid": "tool-rules-table", children: [
+        /* @__PURE__ */ jsxs("colgroup", { children: [
+          /* @__PURE__ */ jsx("col", { style: { width: "28%" } }),
+          /* @__PURE__ */ jsx("col", { style: { width: 68 } }),
+          /* @__PURE__ */ jsx("col", { style: { width: "25%" } }),
+          /* @__PURE__ */ jsx("col", { style: { width: "20%" } }),
+          /* @__PURE__ */ jsx("col", {})
+        ] }),
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tool" }),
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tier" }),
@@ -94,14 +107,14 @@ function PolicyView({ now: nowProp }) {
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Acts on" })
         ] }) }),
         /* @__PURE__ */ jsx("tbody", { children: tools.map((tool) => /* @__PURE__ */ jsxs("tr", { children: [
-          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { children: tool.name }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { title: tool.name, className: c.wrapChip, children: tool.name }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TierChip, { tier: tool.tier }) }),
-          /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
+          /* @__PURE__ */ jsxs("td", { className: `${tk.td} ${c.wrap}`, children: [
             tool.summary,
             tool.propose_only && /* @__PURE__ */ jsx("div", { className: tk.meta, children: "propose only: a person merges" })
           ] }),
-          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: tool.required_args.join(", ") || "\u2014" }) }),
-          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: tool.required_args.join(", ") || "\u2014" }) }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
             tool.target === "none" ? "\u2014" : tool.target,
             tool.github_cost ? ` \xB7 ${tool.github_cost} GitHub calls` : ""
           ] }) })

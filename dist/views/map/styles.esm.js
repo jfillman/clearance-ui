@@ -12,7 +12,7 @@ import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
 
-const POP_W = 272;
+const POP_W = 780;
 const useMapStyles = makeStyles((theme) => {
   const t = tokensForTheme(theme);
   return {
@@ -49,10 +49,9 @@ const useMapStyles = makeStyles((theme) => {
       "@media (prefers-reduced-motion: no-preference)": { animation: "$mapFlow 1.6s linear infinite" }
     },
     popover: {
-      position: "absolute",
-      zIndex: 3,
       width: POP_W,
-      maxWidth: "calc(100% - 16px)",
+      maxWidth: "calc(100vw - 24px)",
+      boxSizing: "border-box",
       backgroundColor: t.panel,
       border: `1px solid ${t.line}`,
       borderRadius: 6,
@@ -66,7 +65,12 @@ const useMapStyles = makeStyles((theme) => {
     },
     popHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
     popName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.lg, margin: 0 },
-    popFacts: { display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: fontScale.sm, "& dt": { color: t.textLo }, "& dd": { margin: 0, textAlign: "right" } },
+    popFacts: { display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: fontScale.sm, "& dt": { color: t.textLo }, "& dd": { margin: 0, textAlign: "right", whiteSpace: "nowrap", minWidth: 0 } },
+    popList: { display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" },
+    // One gate per line; only the instance name (the long part) truncates, with its full text in the title.
+    popGate: { display: "flex", maxWidth: "100%", minWidth: 0, justifyContent: "flex-end" },
+    popLead: { whiteSpace: "pre", flex: "none" },
+    popInstance: { overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 },
     legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 16px", padding: "8px 16px 12px", fontFamily: fontMono, fontSize: fontScale.xs, color: t.textLo },
     legendItem: { display: "inline-flex", alignItems: "center", gap: 6 },
     legendDot: { display: "inline-block", width: 9, height: 9, borderRadius: 2 },

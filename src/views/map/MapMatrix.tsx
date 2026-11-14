@@ -1,6 +1,6 @@
 import { Hint, Tooltip, useClearanceTokens } from '../../kit';
 import type { KeyboardEvent } from 'react';
-import { buildMatrix, type CellMode } from './model';
+import { buildMatrix, gateName, type CellMode } from './model';
 import { statusColor } from './parts';
 import { useMapStyles } from './styles';
 import type { MapResponse, TargetNode } from './types';
@@ -41,12 +41,12 @@ export function MapMatrix({ map, targets, onOpenTarget }: { map: MapResponse; ta
           <tbody>
             {m.gateTypes.map(type => (
               <tr key={type}>
-                <th scope="row" className={c.matrixRowHead}>{type}</th>
+                <th scope="row" className={c.matrixRowHead}>{gateName(type)}</th>
                 {m.targets.map(x => {
                   const mode = m.cell(type, x);
                   return (
-                    <Tooltip key={x.id} title={`${type} on ${x.name}: ${WORDS[mode]}`}>
-                      <td className={`${c.matrixCell} ${cls[mode]}`} role="button" tabIndex={0} aria-label={`${type} on ${x.name}: ${WORDS[mode]}. Open detail`} onClick={() => onOpenTarget(x.id)} onKeyDown={open(x.id)} data-mode={mode} />
+                    <Tooltip key={x.id} title={`${gateName(type)} on ${x.name}: ${WORDS[mode]}`}>
+                      <td className={`${c.matrixCell} ${cls[mode]}`} role="button" tabIndex={0} aria-label={`${gateName(type)} on ${x.name}: ${WORDS[mode]}. Open detail`} onClick={() => onOpenTarget(x.id)} onKeyDown={open(x.id)} data-mode={mode} />
                     </Tooltip>
                   );
                 })}

@@ -66,7 +66,7 @@ it('reads the Map for the window and draws gate types, groups and observers as f
   const q = new URLSearchParams(call.split('?')[1]);
   expect(Date.parse(q.get('to')!) - Date.parse(q.get('from')!)).toBe(60 * 60_000); // the default window is 1 h
   expect(screen.getByRole('group', { name: /Coverage topology: 3 gate types, 3 targets in 2 groups, 2 observers/ })).toBeTruthy();
-  const argo = screen.getByRole('button', { name: /Gate type g-argo: 2 instances guarding 2 targets/ });
+  const argo = screen.getByRole('button', { name: /Gate type Sync gate: 2 instances guarding 2 targets/ });
   expect(argo.getAttribute('tabindex')).toBe('0');
   expect(screen.getByRole('button', { name: /Group hangar-prod: 2 targets, 99% verified/ }).getAttribute('aria-expanded')).toBe('false');
   expect(screen.getByRole('button', { name: /Observer observe-aws .* status down/ })).toBeTruthy();
@@ -74,17 +74,17 @@ it('reads the Map for the window and draws gate types, groups and observers as f
 
 it('focusing a node opens its popover; Escape closes a pinned one', async () => {
   await renderTab();
-  const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+  const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
   await act(async () => {
     fireEvent.focus(argo);
   });
-  const pop = screen.getByRole('dialog', { name: 'g-argo details' });
+  const pop = screen.getByRole('dialog', { name: 'Sync gate details' });
   expect(within(pop).getByText(/0 enforce · 2 flag · 0 silent/)).toBeTruthy();
   await act(async () => {
     fireEvent.blur(argo);
     fireEvent.keyDown(argo, { key: 'Enter' });
   });
-  expect(screen.getByRole('dialog', { name: 'g-argo details' })).toBeTruthy(); // pinned
+  expect(screen.getByRole('dialog', { name: 'Sync gate details' })).toBeTruthy(); // pinned
   await act(async () => {
     fireEvent.keyDown(argo, { key: 'Escape' });
   });
@@ -95,9 +95,9 @@ it('labels every box: column heads, the gate type in words with its kind and ins
   await renderTab();
   for (const head of ['Gate types', 'Clearance core', 'Protected targets', 'Observers']) expect(screen.getAllByText(head).length).toBeGreaterThan(0);
   const gate = screen.getByTestId('gate-glidepath');
-  expect(within(gate).getByText('Glidepath clearance-gate')).toBeTruthy();
-  expect(within(gate).getByText('PR check · 2 instances')).toBeTruthy();
-  expect(within(screen.getByTestId('gate-g-tf')).getByText('Terraform plan · 1 instance')).toBeTruthy();
+  expect(within(gate).getByText('Pull request gate')).toBeTruthy();
+  expect(within(gate).getByText('Glidepath check · 2 instances')).toBeTruthy();
+  expect(within(screen.getByTestId('gate-g-tf')).getByText('Terraform · 1 instance')).toBeTruthy();
   const group = screen.getByTestId('group-hangar-prod');
   expect(within(group).getByText(/2 k8s-namespace · flight · prod/)).toBeTruthy();
   const obs = screen.getByTestId('observer-observe-aws');
@@ -120,11 +120,11 @@ describe('the hover popover does not flicker', () => {
       }
     });
     mo.observe(document.body, { childList: true, subtree: true });
-    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
     await act(async () => {
       fireEvent.mouseEnter(argo);
     });
-    const pop = screen.getByRole('dialog', { name: 'g-argo details' });
+    const pop = screen.getByRole('dialog', { name: 'Sync gate details' });
     expect(argo.contains(pop)).toBe(false); // never a child of the node it describes
     // pointer leaves the node and is on the popover before the hide delay is up: the popover must stay
     await act(async () => {
@@ -135,7 +135,7 @@ describe('the hover popover does not flicker', () => {
       fireEvent.mouseEnter(pop);
     });
     await wait(400);
-    expect(screen.getByRole('dialog', { name: 'g-argo details' })).toBe(pop);
+    expect(screen.getByRole('dialog', { name: 'Sync gate details' })).toBe(pop);
     // leaving the popover hides it, once
     await act(async () => {
       fireEvent.mouseLeave(pop);
@@ -149,7 +149,7 @@ describe('the hover popover does not flicker', () => {
 
   it('a pointer jittering over the node edge (enter, leave, enter) keeps one popover, not a show/hide loop', async () => {
     await renderTab();
-    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
     const seen: boolean[] = [];
     for (let i = 0; i < 6; i++) {
       await act(async () => {
@@ -168,7 +168,7 @@ describe('the hover popover does not flicker', () => {
 
   it('moving from one node to the next swaps the popover, no gap, and a group popover has its action inside it', async () => {
     await renderTab();
-    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
     const group = screen.getByRole('button', { name: /Group hangar-prod/ });
     await act(async () => {
       fireEvent.mouseEnter(argo);
@@ -233,9 +233,9 @@ it('opens on the view the person last used', async () => {
   expect(screen.getByText('Where changes are, by gate type')).toBeTruthy();
   // a gate row scopes the lanes to that gate type: one row per target it guards
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'g-argo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sync gate' }));
   });
-  expect(screen.getByText('Lanes of g-argo')).toBeTruthy();
+  expect(screen.getByText('Lanes of Sync gate')).toBeTruthy();
   expect(screen.getByText('gate-api')).toBeTruthy();
   expect(screen.getByText('flight-api')).toBeTruthy();
   expect(screen.queryByText('acct-prod')).toBeNull();
@@ -252,7 +252,7 @@ it('Needs attention only and the search filter what is drawn, and the registry p
     fireEvent.click(screen.getByRole('button', { name: 'Ground' }));
   });
   expect(screen.queryByRole('button', { name: /Gate type glidepath/ })).toBeNull();
-  expect(screen.getByRole('button', { name: /Gate type g-tf/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Gate type Plan gate/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Flight' })).toBeTruthy();
 });
 
@@ -370,5 +370,38 @@ describe('in the Clearance page', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Evidence →' }));
     });
     expect(screen.queryByRole('heading', { name: 'gate-api' })).toBeNull();
+  });
+});
+
+describe('gate types are shown by name, never by id', () => {
+  const lone = /(^|[^\w-])g-(argo|tf)([^\w-]|$)/;
+  it('the topology and its popovers name every gate type with the one convention', async () => {
+    await renderTab();
+    const text = document.body.textContent ?? '';
+    for (const n of ['Pull request gate', 'Sync gate', 'Plan gate']) expect(text).toContain(n);
+    expect(text).not.toMatch(/G-ARGO|G-TF/);
+    expect(text).not.toMatch(lone);
+    // the attention item the server titled "g-argo on hangar-prod" reads with the gate's name
+    expect(screen.getAllByText('Sync gate on hangar-prod').length).toBeGreaterThan(0);
+    const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
+    await act(async () => {
+      fireEvent.focus(argo);
+    });
+    const pop = screen.getByRole('dialog', { name: 'Sync gate details' });
+    expect(within(pop).getByText('Argo CD')).toBeTruthy();
+    expect(pop.textContent).not.toMatch(lone);
+  });
+
+  it('the lanes view and the search use the names, and the search still takes the raw id', async () => {
+    window.localStorage.setItem('clearance.map.view', 'lanes');
+    await renderTab();
+    expect(screen.getByRole('button', { name: 'Plan gate' })).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(lone);
+    for (const q of ['sync gate', 'g-argo']) {
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText('Search targets'), { target: { value: q } });
+      });
+      expect(screen.queryByText('acct-prod')).toBeNull();
+    }
   });
 });

@@ -3,7 +3,7 @@ import { EmptyRegistry, useMap, WindowChips } from './MapView';
 import { MapLanes } from './MapLanes';
 import { CoverageMix, ModeChip, statusTone, statusWord, useClock } from './parts';
 import { useMapStyles } from './styles';
-import type { WindowId } from './model';
+import { gateName, type WindowId } from './model';
 import type { MapChange, ObserverRef, TargetNode } from './types';
 
 // One protected environment (board C10, the Map's drill-down): who guards it and in what mode, who watches it and how healthy
@@ -101,7 +101,7 @@ export function TargetDetailView({ id, win, onWindow, onBack, onNavigate }: { id
   const blind = node.observers.some(o => o.state === 'blind');
   const evidenceParams: Record<string, string> = { view: 'evidence', ...(node.app ? { app: node.app } : {}) };
   const exceptionParams: Record<string, string> = { view: 'exceptions', ...(node.scope ? { scope: node.scope } : {}) };
-  const laneRows = node.gates.map(g => ({ key: g.instance, label: g.type, sub: g.instance, mode: g.mode, silent: g.silent, lanes: g.lanes, holding: g.holding, refused: g.refused, blind }));
+  const laneRows = node.gates.map(g => ({ key: g.instance, label: gateName(g.type), sub: g.instance, mode: g.mode, silent: g.silent, lanes: g.lanes, holding: g.holding, refused: g.refused, blind }));
   return (
     <>
       {back}
@@ -133,7 +133,7 @@ export function TargetDetailView({ id, win, onWindow, onBack, onNavigate }: { id
                 <li key={g.instance} className={c.listRow}>
                   <ModeChip mode={g.mode} silent={g.silent} />
                   <div className={c.grow}>
-                    <span className={c.rowName}>{g.type}</span>
+                    <span className={c.rowName}>{gateName(g.type)}</span>
                     <span className={c.rowMeta}>{g.instance}{g.attributed ? '' : ' · records not attributed to this target'}</span>
                   </div>
                   <span className={c.rowMeta}>{g.decisions.toLocaleString()} decisions{g.refused ? ` · ${g.refused} ${g.mode === 'flag' ? 'would refuse' : 'refused'}` : ''}</span>
