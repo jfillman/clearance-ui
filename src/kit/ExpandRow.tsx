@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useTableKit } from './kit';
 
@@ -42,9 +42,23 @@ export function ExpandRow({ id, open, onToggle, colSpan, children, details, labe
   const ref = useRef<HTMLTableRowElement>(null);
   const detailsId = `${id}-details`;
   // Scroll the opened details into view; 'nearest' moves the page only as far as needed. jsdom has no scrollIntoView.
+  // A wide table scrolls sideways inside its panel: the details are held to the panel's visible width and stay at the
+  // left edge, so on a narrow screen they are readable without scrolling the table.
+  const [width, setWidth] = useState<number>();
+  const measured = width !== undefined;
+  useLayoutEffect(() => {
+    const holder = open ? ref.current?.closest('table')?.parentElement : undefined;
+    if (!holder) return undefined;
+    const measure = () => setWidth(holder.clientWidth || undefined);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(holder);
+    return () => ro.disconnect();
+  }, [open]);
   useEffect(() => {
     if (open) ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  }, [open]);
+  }, [open, measured]); // again once the measured width has reflowed the details
   const rowKey = (e: KeyboardEvent<HTMLTableRowElement>) => {
     if (e.target !== e.currentTarget) {
       // A key pressed inside a control in the row (a link, a checkbox) belongs to that control; Escape still closes.
@@ -79,7 +93,7 @@ export function ExpandRow({ id, open, onToggle, colSpan, children, details, labe
           }}
         >
           <td className={`${tk.td} ${c.drawer}`} colSpan={colSpan} role="region" aria-label={label}>
-            {details}
+            <div style={width ? { position: 'sticky', left: 0, width, boxSizing: 'border-box' } : undefined}>{details}</div>
           </td>
         </tr>
       )}

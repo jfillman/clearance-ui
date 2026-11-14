@@ -1,5 +1,5 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
-import { useRef, useEffect, Fragment, useState, useCallback } from 'react';
+import { useRef, useState, useLayoutEffect, useEffect, Fragment, useCallback } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useTableKit } from './kit.esm.js';
 
@@ -18,9 +18,21 @@ function ExpandRow({ id, open, onToggle, colSpan, children, details, label }) {
   const c = useStyles();
   const ref = useRef(null);
   const detailsId = `${id}-details`;
+  const [width, setWidth] = useState();
+  const measured = width !== void 0;
+  useLayoutEffect(() => {
+    const holder = open ? ref.current?.closest("table")?.parentElement : void 0;
+    if (!holder) return void 0;
+    const measure = () => setWidth(holder.clientWidth || void 0);
+    measure();
+    if (typeof ResizeObserver === "undefined") return void 0;
+    const ro = new ResizeObserver(measure);
+    ro.observe(holder);
+    return () => ro.disconnect();
+  }, [open]);
   useEffect(() => {
     if (open) ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
-  }, [open]);
+  }, [open, measured]);
   const rowKey = (e) => {
     if (e.target !== e.currentTarget) {
       if (e.key === "Escape" && open) onToggle();
@@ -53,7 +65,7 @@ function ExpandRow({ id, open, onToggle, colSpan, children, details, label }) {
         onKeyDown: (e) => {
           if (e.key === "Escape" && !e.defaultPrevented) onToggle();
         },
-        children: /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.drawer}`, colSpan, role: "region", "aria-label": label, children: details })
+        children: /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.drawer}`, colSpan, role: "region", "aria-label": label, children: /* @__PURE__ */ jsx("div", { style: width ? { position: "sticky", left: 0, width, boxSizing: "border-box" } : void 0, children: details }) })
       }
     )
   ] });
