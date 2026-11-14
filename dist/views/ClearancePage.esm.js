@@ -11,6 +11,7 @@ import { ProductMark } from '../kit/ProductMark.esm.js';
 import { CoverageStrip } from '../kit/coverage.esm.js';
 import '../kit/Pager.esm.js';
 import '../kit/kitStyles.esm.js';
+import '../kit/ExpandRow.esm.js';
 import { EvidenceView } from './evidence/EvidenceView.esm.js';
 import { PolicyView } from './policy/PolicyView.esm.js';
 import { ClearancesView } from './clearances/ClearancesView.esm.js';
@@ -52,7 +53,7 @@ function ClearancePage() {
       view === "evidence" && /* @__PURE__ */ jsx(EvidenceView, { initialApp: params.get("app") ?? void 0 }),
       view === "exceptions" && /* @__PURE__ */ jsx(ExceptionsView, { initialScope: params.get("scope") ?? void 0 }),
       view === "map" && /* @__PURE__ */ jsx(MapTab, { target: params.get("target") ?? void 0, onOpenTarget: (id) => setParams(id ? { view: "map", target: id } : { view: "map" }), onNavigate: (p) => setParams(p) }),
-      view === "attestations" && /* @__PURE__ */ jsx(AttestationsView, { onOpenChange: (id) => setParams({ view: "clearances", change: id }) }),
+      view === "attestations" && /* @__PURE__ */ jsx(AttestationsView, { initial: params.get("change") ?? void 0, onOpenChange: (id) => setParams({ view: "clearances", change: id }) }),
       view === "policy" && /* @__PURE__ */ jsx(PolicyView, {})
     ] })
   ] });

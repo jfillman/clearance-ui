@@ -9,6 +9,7 @@ import {
   Count,
   DecisionChip,
   EmptyNote,
+  ExpandRow,
   FilterBar,
   FilterChips,
   FilterInput,
@@ -28,6 +29,7 @@ import {
   useClearanceRead,
   useMountedNow,
   usePoll,
+  useOneOpen,
   useTableKit,
   VerifiedClaimed,
   YamlBlock,
@@ -97,6 +99,22 @@ const useStyles = makeStyles<Theme>(() => ({
   more: { padding: 14 },
 }));
 
+/** One record, field by field, under its row. */
+function RecordDetail({ record: picked }: { record: EvidenceRecord }) {
+  const c = useStyles();
+  const [raw, setRaw] = useState(false);
+  return (
+    <Section framed aria-label="Record detail" title={`Record ${picked.seq}`} meta={<DecisionChip decision={picked.decision} rule={picked.rule} />} count={`${picked.boundary} · ${picked.schema}`}>
+      <div className={c.pad}>
+        {picked.decision === 'deny' && picked.result && <Callout tone="bad">{picked.result}</Callout>}
+        <VerifiedClaimed record={picked} />
+        <div><TextLink expanded={raw} onClick={() => setRaw(v => !v)}>raw record</TextLink></div>
+        {raw && <YamlBlock text={JSON.stringify(picked, null, 2)} aria-label="Raw record" />}
+      </div>
+    </Section>
+  );
+}
+
 export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initialApp?: string }) {
   const c = useStyles();
   const tk = useTableKit();
@@ -110,8 +128,7 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
   const [next, setNext] = useState<number | null>(null);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
-  const [seq, setSeq] = useState<number>();
-  const [raw, setRaw] = useState(false);
+  const { open: seq, toggle, close } = useOneOpen<number>();
   const query = useMemo(() => queryOf(f, now), [f, now]);
   const key = JSON.stringify({ ...query, limit: pageSize });
 
@@ -132,7 +149,7 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
     [api, query, pageSize],
   );
   useEffect(() => {
-    setSeq(undefined);
+    close();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -145,7 +162,6 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
   const covTotals = usePoll(`cov-totals-${JSON.stringify(queryNoCoverage)}`, () => api.get<{ items: Array<{ key: string | null; count: number }> }>('/v1/evidence/counts', { ...queryNoCoverage, by: 'coverage' }), 0);
   const covCount = (state: string) => covTotals.data?.items.find(i => i.key === state)?.count;
   const denyCount = totals.data?.items.find(i => i.key === 'deny')?.count ?? 0;
-  const picked = items.find(r => r.seq === seq);
   const head = items[0];
   const set = (patch: Partial<Filters>) => setF(prev => ({ ...prev, ...patch }));
 
@@ -169,7 +185,7 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
         <Tooltip title="Clearance verifies the whole chain from genesis for an auditor's own sign-in; Backstage shows the head it would check."><span>chain check: an auditor's step</span></Tooltip>
       </Hint>
       <div className={c.row}>
-        <Section framed aria-label="Records" title="Records" count={`${items.length} loaded${next !== null ? ', more below' : ''}`} style={{ flex: '1.4 1 560px' }}>
+        <Section framed aria-label="Records" title="Records" count={`${items.length} loaded${next !== null ? ', more below' : ''}`} style={{ flex: '1 1 100%', minWidth: 0 }}>
           {error && <div className={c.pad}><TabError error={error} what="records" onRetry={() => load()} /></div>}
           {!error && items.length === 0 && (loading ? <PanelSkeleton rows={4} label="Loading…" /> : <EmptyNote inset>No records match.</EmptyNote>)}
           {items.length > 0 && (
@@ -177,14 +193,14 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
               <thead><tr><th className={tk.th}>Seq</th><th className={tk.th}>Time</th><th className={tk.th}>Principal</th><th className={tk.th}>Tool</th><th className={tk.th}>Decision</th><th className={tk.th}>Assurance</th></tr></thead>
               <tbody>
                 {items.map(r => (
-                  <tr key={r.seq} className={`${tk.rowLink} ${seq === r.seq ? tk.rowSelected : ''}`} aria-selected={seq === r.seq} tabIndex={0} onClick={() => setSeq(seq === r.seq ? undefined : r.seq)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSeq(seq === r.seq ? undefined : r.seq)}>
+                  <ExpandRow key={r.seq} id={`evidence-${r.seq}`} open={seq === r.seq} onToggle={() => toggle(r.seq)} colSpan={6} label={`Record ${r.seq} detail`} details={<RecordDetail record={r} />}>
                     <td className={tk.td}><span className={tk.meta}>{r.seq}</span></td>
                     <td className={tk.td}><Tooltip title={r.ts}><span className={tk.meta}>{clock(r.ts)}</span></Tooltip><div className={tk.meta}>{relativeTime(r.ts, now)}</div></td>
                     <td className={tk.td}><span className={tk.meta}>{shortPrincipal(r.principal)}</span>{r.agent && <div className={tk.meta}>{r.agent}</div>}</td>
                     <td className={tk.td}><TierChip tier={r.tier} /> <Chip>{r.tool}</Chip>{(r.app || r.target) && <div className={tk.meta}>{r.app ?? r.target}</div>}</td>
                     <td className={tk.td}><DecisionChip decision={r.decision} rule={r.rule} /></td>
                     <td className={tk.td}><StatusChip tone={r.assurance === 'checkpointed' ? 'ok' : 'neutral'}>{r.assurance ?? 'unknown'}</StatusChip></td>
-                  </tr>
+                  </ExpandRow>
                 ))}
               </tbody>
             </table>
@@ -195,16 +211,6 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
             </div>
           )}
         </Section>
-        {picked && (
-          <Section framed aria-label="Record detail" title={`Record ${picked.seq}`} meta={<DecisionChip decision={picked.decision} rule={picked.rule} />} count={`${picked.boundary} · ${picked.schema}`} style={{ flex: '1 1 420px' }}>
-            <div className={c.pad}>
-              {picked.decision === 'deny' && picked.result && <Callout tone="bad">{picked.result}</Callout>}
-              <VerifiedClaimed record={picked} />
-              <div><TextLink expanded={raw} onClick={() => setRaw(v => !v)}>raw record</TextLink></div>
-              {raw && <YamlBlock text={JSON.stringify(picked, null, 2)} aria-label="Raw record" />}
-            </div>
-          </Section>
-        )}
       </div>
     </>
   );

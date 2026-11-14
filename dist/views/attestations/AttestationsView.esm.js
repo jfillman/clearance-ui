@@ -1,5 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, dateTime } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
@@ -12,6 +12,8 @@ import { useClearanceRead } from '../../kit/read.esm.js';
 import '../../kit/coverage.esm.js';
 import { DEFAULT_PAGE_SIZE, pageSlice, Pager } from '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import { useOneOpen, ExpandRow } from '../../kit/ExpandRow.esm.js';
+import { AttestationDetail } from './AttestationDetail.esm.js';
 import { cursorOf, verifiableOf, rekorUrl, shortDigest, RekorIndex, VerifyChip, verifyDisplay } from '../clearances/ChangeProof.esm.js';
 
 const WINDOWS = [
@@ -41,7 +43,7 @@ const useStyles = makeStyles(() => ({
   pad: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 12 },
   more: { padding: "8px 18px" }
 }));
-function AttestationsView({ now: nowProp, onOpenChange }) {
+function AttestationsView({ now: nowProp, onOpenChange, initial }) {
   const c = useStyles();
   const tk = useTableKit();
   const api = useClearanceRead();
@@ -51,6 +53,8 @@ function AttestationsView({ now: nowProp, onOpenChange }) {
   const [env, setEnv] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const { open, toggle, close, set: setOpen } = useOneOpen();
+  const linked = useRef(initial);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const since = useMemo(() => windowSince(now, win), [now, win]);
   const key = `${since}|${app}|${env}`;
@@ -67,6 +71,7 @@ function AttestationsView({ now: nowProp, onOpenChange }) {
     setExtra([]);
     setAfter(void 0);
     setPage(0);
+    close();
   }, [key]);
   const rows = [...first.data?.items ?? [], ...extra];
   const next = cursorOf(after, first.data?.next);
@@ -85,6 +90,14 @@ function AttestationsView({ now: nowProp, onOpenChange }) {
     }
   };
   const shown = searchRows(rows, query);
+  useEffect(() => {
+    if (!linked.current) return;
+    const at = shown.findIndex((r) => r.change_id === linked.current);
+    if (at < 0) return;
+    linked.current = void 0;
+    setPage(Math.floor(at / pageSize));
+    setOpen(shown[at].record_seq);
+  }, [first.data, extra]);
   const slice = pageSlice(shown, page, pageSize);
   const count = (k) => counts.data?.items.find((i) => i.key === k)?.count ?? 0;
   const verifiable = verifiableOf(config);
@@ -128,7 +141,7 @@ function AttestationsView({ now: nowProp, onOpenChange }) {
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: ["App", "Env", "Change", "Release", "Tree", "Signed", "Rekor index", "Key id", "State"].map((h) => /* @__PURE__ */ jsx("th", { className: tk.th, children: h }, h)) }) }),
         /* @__PURE__ */ jsx("tbody", { children: slice.rows.map((r) => {
           const url = rekorUrl(config.data, r.rekor_log_index);
-          return /* @__PURE__ */ jsxs("tr", { className: tk.rowLink, tabIndex: 0, "aria-label": `Open change ${r.change_id}`, onClick: () => onOpenChange?.(r.change_id), onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && onOpenChange?.(r.change_id), children: [
+          return /* @__PURE__ */ jsxs(ExpandRow, { id: `attestation-${r.record_seq}`, open: open === r.record_seq, onToggle: () => toggle(r.record_seq), colSpan: 9, label: `Attestation for change ${r.change_id}`, details: /* @__PURE__ */ jsx(AttestationDetail, { row: r, onOpenChange }), children: [
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("b", { children: r.app }) }),
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.env }) }),
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.change_id }) }),

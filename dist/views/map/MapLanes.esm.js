@@ -8,6 +8,7 @@ import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import '../../kit/ExpandRow.esm.js';
 import { lanePartials } from './model.esm.js';
 import { ModeChip } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';

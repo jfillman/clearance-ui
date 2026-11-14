@@ -9,6 +9,7 @@ import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import { TierBadge } from '../../kit/tiers.esm.js';
+import '../../kit/ExpandRow.esm.js';
 import { useMap, EmptyRegistry, WindowChips } from './MapView.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { useClock, statusWord, statusTone, ModeChip, CoverageMix } from './parts.esm.js';

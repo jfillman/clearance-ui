@@ -63,7 +63,8 @@ function ExceptionsPage() {
 
 function AttestationsPage() {
   const navigate = useNavigate();
-  return <Page view="attestations" coverage={false}><AttestationsView onOpenChange={id => navigate(`/clearances?change=${encodeURIComponent(id)}`)} /></Page>;
+  const [params] = useSearchParams();
+  return <Page view="attestations" coverage={false}><AttestationsView initial={params.get('change') ?? undefined} onOpenChange={id => navigate(`/clearances?change=${encodeURIComponent(id)}`)} /></Page>;
 }
 
 function MapPage() {

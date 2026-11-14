@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import {
@@ -13,6 +13,7 @@ import {
   dateTime,
   DEFAULT_PAGE_SIZE,
   EmptyNote,
+  ExpandRow,
   Fact,
   FactGrid,
   Field,
@@ -112,7 +113,6 @@ interface Row {
 // Layout only: every look (panels, tables, filters, chips, buttons, notes) is the kit's.
 const useStyles = makeStyles<Theme>(() => ({
   scroll: { overflowX: 'auto' },
-  drawer: { padding: 0 },
   inlineDetail: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 12 },
   detailHead: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
   hist: { margin: 0, paddingLeft: 18, fontSize: fontScale.md },
@@ -560,34 +560,25 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
                 const isOpen = selected === key;
                 const toggle = () => onSelect(isOpen ? undefined : key);
                 return (
-                  <Fragment key={key}>
-                    <tr className={`${tk.rowLink} ${isOpen ? tk.rowSelected : ''}`} aria-selected={isOpen} onClick={toggle}>
-                      {admin && (
-                        <td className={tk.td} onClick={e => e.stopPropagation()}>
-                          {r.resolvable && <Checkbox aria-label={`Select ${rowName(r)}, seq ${r.seq}`} checked={picked.has(key)} onChange={() => onPick([key], !picked.has(key))} />}
-                        </td>
-                      )}
-                      <td className={tk.td}>
-                        <TextLink expanded={isOpen} title={dateTime(r.ts)} aria-controls={`exc-${key}`} aria-label={`${isOpen ? 'Hide' : 'Show'} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`}>
-                          {relativeTime(r.ts, now)}
-                        </TextLink>
+                  <ExpandRow key={key} id={`exc-${key}`} open={isOpen} onToggle={toggle} colSpan={cols.length} label={`Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`} details={<RowDetail row={r} admin={admin} onChanged={onChanged} now={now} />}>
+                    {admin && (
+                      <td className={tk.td} onClick={e => e.stopPropagation()}>
+                        {r.resolvable && <Checkbox aria-label={`Select ${rowName(r)}, seq ${r.seq}`} checked={picked.has(key)} onChange={() => onPick([key], !picked.has(key))} />}
                       </td>
-                      <td className={tk.td}><StatusChip tone={COVERAGE_TONE[r.klass] ?? 'neutral'}>{r.klass}</StatusChip></td>
-                      <td className={`${tk.td} ${tk.meta}`}>{r.resource || r.source}</td>
-                      <td className={`${tk.td} ${tk.meta}`}>{shortPrincipal(r.actor) || '—'}</td>
-                      <td className={`${tk.td} ${tk.meta}`}>{r.diff || '—'}</td>
-                      <td className={tk.td}>
-                        {r.resolution ? <StatusChip tone={RESOLUTION_TONE[r.resolution] ?? 'warn'}>{STATE_WORDS[r.resolution] ?? r.resolution}</StatusChip> : <StatusChip tone="neutral">none recorded</StatusChip>}
-                      </td>
-                    </tr>
-                    {isOpen && (
-                      <tr id={`exc-${key}`}>
-                        <td className={`${tk.td} ${c.drawer}`} colSpan={cols.length}>
-                          <RowDetail row={r} admin={admin} onChanged={onChanged} now={now} />
-                        </td>
-                      </tr>
                     )}
-                  </Fragment>
+                    <td className={tk.td}>
+                      <TextLink expanded={isOpen} title={dateTime(r.ts)} aria-label={`${isOpen ? 'Hide' : 'Show'} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`}>
+                        {relativeTime(r.ts, now)}
+                      </TextLink>
+                    </td>
+                    <td className={tk.td}><StatusChip tone={COVERAGE_TONE[r.klass] ?? 'neutral'}>{r.klass}</StatusChip></td>
+                    <td className={`${tk.td} ${tk.meta}`}>{r.resource || r.source}</td>
+                    <td className={`${tk.td} ${tk.meta}`}>{shortPrincipal(r.actor) || '—'}</td>
+                    <td className={`${tk.td} ${tk.meta}`}>{r.diff || '—'}</td>
+                    <td className={tk.td}>
+                      {r.resolution ? <StatusChip tone={RESOLUTION_TONE[r.resolution] ?? 'warn'}>{STATE_WORDS[r.resolution] ?? r.resolution}</StatusChip> : <StatusChip tone="neutral">none recorded</StatusChip>}
+                    </td>
+                  </ExpandRow>
                 );
               })}
             </tbody>

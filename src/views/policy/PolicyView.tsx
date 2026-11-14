@@ -7,6 +7,7 @@ import {
   ColumnLabel,
   Count,
   DecisionChip,
+  ExpandRow,
   Field,
   FilterBar,
   FilterChips,
@@ -74,6 +75,7 @@ const useStyles = makeStyles<Theme>(() => ({
   pad: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
   path: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   verdict: { display: 'flex', flexDirection: 'column', gap: 6 },
+  ruleDetail: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 18px' },
   run: { alignSelf: 'flex-start' },
 }));
 
@@ -117,25 +119,15 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
                     {rules.map(r => {
                       const n = hitsByRule.get(r.id) ?? 0;
                       const isOpen = open === r.id;
-                      return [
-                        <tr key={r.id} className={`${tk.rowLink} ${isOpen ? tk.rowSelected : ''}`} aria-expanded={isOpen} tabIndex={0} onClick={() => setOpen(isOpen ? undefined : r.id)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setOpen(isOpen ? undefined : r.id)}>
+                      return (
+                        <ExpandRow key={r.id} id={`rule-${r.id}`} open={isOpen} onToggle={() => setOpen(isOpen ? undefined : r.id)} colSpan={5} label={`Rule ${r.id} detail`} details={<div className={c.ruleDetail}><Hint><b>Message</b> {r.message}</Hint><Hint><b>Hint to the agent</b> {r.hint}</Hint></div>}>
                           <td className={tk.td}><Chip>{r.id}</Chip></td>
                           <td className={tk.td}>{r.name}</td>
                           <td className={tk.td}><span className={tk.meta}>{r.expression}</span></td>
                           <td className={tk.td}><Chip tone={r.pack === 'core' ? 'neutral' : 'sky'}>{r.pack}</Chip></td>
                           <td className={tk.td}><span className={tk.meta} style={{ color: n ? t.amberText : t.textFaint }}>{n}</span></td>
-                        </tr>,
-                        isOpen && (
-                          <tr key={`${r.id}-detail`}>
-                            <td className={tk.td} colSpan={5}>
-                              <div className={c.verdict}>
-                                <Hint><b>Message</b> {r.message}</Hint>
-                                <Hint><b>Hint to the agent</b> {r.hint}</Hint>
-                              </div>
-                            </td>
-                          </tr>
-                        ),
-                      ];
+                        </ExpandRow>
+                      );
                     })}
                   </tbody>
                 </table>

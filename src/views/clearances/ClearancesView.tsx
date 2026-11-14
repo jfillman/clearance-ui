@@ -9,6 +9,7 @@ import {
   ControlError,
   dateTime,
   EmptyNote,
+  ExpandRow,
   Fact,
   FactGrid,
   FilterBar,
@@ -34,6 +35,7 @@ import {
   useClearanceWrite,
   useInputClass,
   useMountedNow,
+  useOneOpen,
   usePoll,
   useTableKit,
   type Change,
@@ -77,13 +79,12 @@ export function stillNeeds(c: Pick<Change, 'requirement' | 'approvals'>): string
 
 // Layout only: every look is the kit's.
 const useStyles = makeStyles<Theme>(() => ({
-  row: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' },
   scroll: { overflowX: 'auto' },
   pad: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 12 },
   actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   reason: { flex: '1 1 220px', width: 'auto' },
   selectable: { userSelect: 'text' },
-  stack: { display: 'flex', flexDirection: 'column', gap: 16 },
+  stack: { display: 'flex', flexDirection: 'column', gap: 16, padding: 12 },
 }));
 
 function needsText(change: Change): string {
@@ -169,13 +170,27 @@ export function ClearanceDetail({ change, onChanged }: { change: Change; onChang
   );
 }
 
+/** A change's details, opened under its row: the change (to clear or deny), then its history, outcome and attestation. */
+export function ClearanceDrawer({ id, onChanged }: { id: string; onChanged?: () => void }) {
+  const c = useStyles();
+  const api = useClearanceRead();
+  const one = usePoll(`clearance-${id}`, () => api.get<Change>(`/v1/clearances/${encodeURIComponent(id)}`), 30_000);
+  if (!one.data) return one.error ? <div className={c.pad}><TabError error={one.error} what="the change" onRetry={one.refresh} /></div> : <PanelSkeleton rows={3} label="Loading the change…" />;
+  return (
+    <div className={c.stack}>
+      <ClearanceDetail change={one.data} onChanged={() => { one.refresh(); onChanged?.(); }} />
+      <ChangeProof change={one.data} />
+    </div>
+  );
+}
+
 export function ClearancesView({ app, initial, now: nowProp }: { app?: string; initial?: string; now?: number }) {
   const c = useStyles();
   const tk = useTableKit();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [state, setState] = useState<ChangeState | 'all'>(initial ? 'all' : 'holding');
-  const [selected, setSelected] = useState<string | undefined>(initial);
+  const { open: selected, toggle } = useOneOpen<string>(initial);
   const [tiers, setTiers] = useState<number[]>([]);
   const { policy, source } = useTierPolicy(app);
   const since = useMemo(() => new Date(Math.floor((now - 24 * 3_600_000) / 60_000) * 60_000).toISOString(), [now]);
@@ -191,10 +206,13 @@ export function ClearancesView({ app, initial, now: nowProp }: { app?: string; i
   const mix = tierCountsOf(tierCounts.data?.items);
   const counts = usePoll(`clearance-counts-${app ?? ''}`, () => api.get<{ items: Array<{ key: string | null; count: number }>; total: number }>('/v1/clearances/counts', { app, by: 'state' }), 60_000);
   const byPolicy = usePoll(`clearance-cleared-by-${app ?? ''}`, () => api.get<{ items: Array<{ key: string | null; count: number }> }>('/v1/clearances/counts', { app, by: 'cleared_by', state: 'cleared' }), 60_000);
-  const one = usePoll(`clearance-${selected ?? ''}`, () => (selected ? api.get<Change>(`/v1/clearances/${encodeURIComponent(selected)}`) : Promise.resolve(undefined)), 30_000);
+  // A deep link (?change=<id>) names a change the list may not hold (another state, older than the page): it still opens.
+  const linked = usePoll(`clearance-linked-${initial ?? ''}`, () => (initial ? api.get<Change>(`/v1/clearances/${encodeURIComponent(initial)}`).catch(() => undefined) : Promise.resolve(undefined)), 0);
   const count = (k: string) => counts.data?.items.find(i => i.key === k)?.count ?? 0;
-  const items = list.data?.items ?? [];
-  const refresh = () => { tierCounts.refresh(); list.refresh(); counts.refresh(); one.refresh(); byPolicy.refresh(); };
+  const listed = list.data?.items ?? [];
+  const pinned = initial && list.data && linked.data && !listed.some(ch => ch.id === initial) ? linked.data : undefined;
+  const items = pinned ? [pinned, ...listed] : listed;
+  const refresh = () => { tierCounts.refresh(); list.refresh(); counts.refresh(); byPolicy.refresh(); };
   return (
     <>
       <StatRow>
@@ -204,8 +222,7 @@ export function ClearancesView({ app, initial, now: nowProp }: { app?: string; i
         <Card><Stat label="Denied · expired" value={`${count('denied')} · ${count('expired')}`} /></Card>
         <Card><Stat label="Changes in 24 h, by tier" value={Object.values(mix).reduce((n, v) => n + v, 0)} /><TierMix counts={mix} /></Card>
       </StatRow>
-      <div className={c.row}>
-        <Section framed aria-label="Changes" title="Changes" count={`${items.length} shown`} style={{ flex: '1.2 1 520px' }}>
+        <Section framed aria-label="Changes" title="Changes" count={`${items.length} shown`}>
           <div className={c.pad}>
             <FilterBar>
               <FilterChips label="State" options={STATES} value={state} onChange={setState} />
@@ -222,30 +239,19 @@ export function ClearancesView({ app, initial, now: nowProp }: { app?: string; i
                 <thead><tr><th className={tk.th}>Change</th><th className={tk.th}>Tier</th><th className={tk.th}>State</th><th className={tk.th}>Needs</th><th className={tk.th}>Updated</th></tr></thead>
                 <tbody>
                   {items.map(ch => (
-                    <tr key={ch.id} className={`${tk.rowLink} ${ch.id === selected ? tk.rowSelected : ''}`} aria-selected={ch.id === selected} tabIndex={0} onClick={() => setSelected(ch.id)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelected(ch.id)}>
+                    <ExpandRow key={ch.id} id={`change-${ch.id}`} open={ch.id === selected} onToggle={() => toggle(ch.id)} colSpan={5} label={`Change ${ch.id} detail`} details={<ClearanceDrawer id={ch.id} onChanged={refresh} />}>
                       <td className={tk.td}><b>{ch.app}</b> · {ch.env}<div className={tk.meta}>{ch.id} · {ch.target} · {shortPrincipal(ch.proposer)}</div></td>
                       <td className={tk.td}><TierBadge tier={ch.tier} change={ch} policy={policy}>T{ch.tier}</TierBadge></td>
                       <td className={tk.td}><StatusChip tone={stateTone(ch.state)} dot={ch.state === 'holding'}>{ch.state}</StatusChip></td>
                       <td className={tk.td}><span className={tk.meta}>{ch.state === 'holding' ? stillNeeds(ch) : ch.cleared_by ?? ''}</span></td>
                       <td className={tk.td}><Tooltip title={dateTime(ch.updated_at)}><span className={tk.meta}>{relativeTime(ch.updated_at, now)}</span></Tooltip></td>
-                    </tr>
+                    </ExpandRow>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
         </Section>
-        <div style={{ flex: '1 1 440px', minWidth: 0 }}>
-          {one.data ? (
-            <div className={c.stack}>
-              <ClearanceDetail change={one.data} onChanged={refresh} />
-              <ChangeProof change={one.data} />
-            </div>
-          ) : (
-            <Section framed title="Change"><EmptyNote inset>{one.error ?? 'Select a change to see why it has its tier, what it binds to, and to clear or deny it.'}</EmptyNote></Section>
-          )}
-        </div>
-      </div>
     </>
   );
 }

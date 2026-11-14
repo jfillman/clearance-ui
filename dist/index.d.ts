@@ -1312,6 +1312,30 @@ declare function TierFilter({ value, onChange, policy, source, counts }: {
     counts?: TierCounts;
 }): react.JSX.Element;
 
+/** Which row is open: at most one. `initial` is a deep link (`?change=<id>`). */
+declare function useOneOpen<K extends string | number>(initial?: K): {
+    open: K | undefined;
+    toggle: (key: K) => void;
+    close: () => void;
+    set: (key: K | undefined) => void;
+};
+interface ExpandRowProps {
+    /** Unique within the page; the details row is `${id}-details`, which the row's aria-controls names. */
+    id: string;
+    open: boolean;
+    onToggle: () => void;
+    /** Columns in the table, for the details cell. */
+    colSpan: number;
+    /** The row's cells (`<td>`s). */
+    children: ReactNode;
+    /** The details, rendered only while open. */
+    details: ReactNode;
+    /** Accessible name for the details region, e.g. "Change ch-1 details". */
+    label: string;
+}
+/** A row that expands inline. Renders two `<tr>`s: the row, and while open its details. */
+declare function ExpandRow({ id, open, onToggle, colSpan, children, details, label }: ExpandRowProps): react.JSX.Element;
+
 type ClearanceView = 'clearances' | 'evidence' | 'exceptions' | 'attestations' | 'map' | 'policy';
 declare const CLEARANCE_VIEWS: Array<{
     id: ClearanceView;
@@ -1349,9 +1373,10 @@ declare function ExceptionsView({ now: nowProp, initialScope }: {
     initialScope?: string;
 }): react.JSX.Element;
 
-declare function AttestationsView({ now: nowProp, onOpenChange }: {
+declare function AttestationsView({ now: nowProp, onOpenChange, initial }: {
     now?: number;
     onOpenChange?: (changeId: string) => void;
+    initial?: string;
 }): react.JSX.Element;
 
 type Navigate = (params: Record<string, string>) => void;
@@ -1367,5 +1392,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, healthTone, isWorkload, outcomeLabel, pageSlice, preventFocusScroll, ratio, readDeniedText, relativeTime, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useInputClass, useMountedNow, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
-export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageHealth, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, healthTone, isWorkload, outcomeLabel, pageSlice, preventFocusScroll, ratio, readDeniedText, relativeTime, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
+export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageHealth, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };

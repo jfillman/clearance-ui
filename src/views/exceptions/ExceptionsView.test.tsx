@@ -208,7 +208,7 @@ it('renders a clear needs-the-release state on 403, not a crash', async () => {
 });
 
 const seenTable = () => screen.getByRole('region', { name: 'Seen, not cleared' });
-const resources = () => within(seenTable()).getAllByRole('row').slice(1).filter(r => r.getAttribute('aria-selected') !== null).map(r => r.querySelectorAll("td")[3].textContent);
+const resources = () => within(seenTable()).getAllByRole('row').slice(1).filter(r => r.getAttribute('aria-expanded') !== null).map(r => r.querySelectorAll("td")[3].textContent);
 
 it('opens the details directly below the clicked row, one at a time, and collapses on a second click', async () => {
   await open();

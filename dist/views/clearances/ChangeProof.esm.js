@@ -12,6 +12,7 @@ import { useClearanceRead, ReadError } from '../../kit/read.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import '../../kit/ExpandRow.esm.js';
 
 const useStyles = makeStyles((theme) => {
   const t = tokensForTheme(theme);

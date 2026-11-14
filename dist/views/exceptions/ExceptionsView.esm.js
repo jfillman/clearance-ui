@@ -1,5 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect, useRef, Fragment as Fragment$1 } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { RESOLUTION_STATES, RESOLUTION_CAUSES } from '../../kit/types.esm.js';
 import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
@@ -15,6 +15,7 @@ import { useClearanceWrite, BULK_RESOLUTION_LIMIT, ControlError } from '../../ki
 import { useScopes, useCoverage, statusOf, readDeniedText, CoverageBanner } from '../../kit/coverage.esm.js';
 import { DEFAULT_PAGE_SIZE, pageSlice, PAGE_SIZES, Pager } from '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 import { historyOf, diffSummary, REDACTED } from './diff.esm.js';
 
 const DAY = 864e5;
@@ -39,7 +40,6 @@ const COVERAGE_TONE = {
 const RESOLUTION_TONE = { reverted: "ok", ratified: "ok", "still-live": "warn", "declared-break-glass": "warn" };
 const useStyles = makeStyles(() => ({
   scroll: { overflowX: "auto" },
-  drawer: { padding: 0 },
   inlineDetail: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 12 },
   detailHead: { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
   hist: { margin: 0, paddingLeft: 18, fontSize: fontScale.md },
@@ -464,17 +464,14 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
         const key = rowKey(r);
         const isOpen = selected === key;
         const toggle = () => onSelect(isOpen ? void 0 : key);
-        return /* @__PURE__ */ jsxs(Fragment$1, { children: [
-          /* @__PURE__ */ jsxs("tr", { className: `${tk.rowLink} ${isOpen ? tk.rowSelected : ""}`, "aria-selected": isOpen, onClick: toggle, children: [
-            admin && /* @__PURE__ */ jsx("td", { className: tk.td, onClick: (e) => e.stopPropagation(), children: r.resolvable && /* @__PURE__ */ jsx(Checkbox, { "aria-label": `Select ${rowName(r)}, seq ${r.seq}`, checked: picked.has(key), onChange: () => onPick([key], !picked.has(key)) }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TextLink, { expanded: isOpen, title: dateTime(r.ts), "aria-controls": `exc-${key}`, "aria-label": `${isOpen ? "Hide" : "Show"} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, children: relativeTime(r.ts, now) }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: COVERAGE_TONE[r.klass] ?? "neutral", children: r.klass }) }),
-            /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: r.resource || r.source }),
-            /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: shortPrincipal(r.actor) || "\u2014" }),
-            /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: r.diff || "\u2014" }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: r.resolution ? /* @__PURE__ */ jsx(StatusChip, { tone: RESOLUTION_TONE[r.resolution] ?? "warn", children: STATE_WORDS[r.resolution] ?? r.resolution }) : /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "none recorded" }) })
-          ] }),
-          isOpen && /* @__PURE__ */ jsx("tr", { id: `exc-${key}`, children: /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.drawer}`, colSpan: cols.length, children: /* @__PURE__ */ jsx(RowDetail, { row: r, admin, onChanged, now }) }) })
+        return /* @__PURE__ */ jsxs(ExpandRow, { id: `exc-${key}`, open: isOpen, onToggle: toggle, colSpan: cols.length, label: `Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, details: /* @__PURE__ */ jsx(RowDetail, { row: r, admin, onChanged, now }), children: [
+          admin && /* @__PURE__ */ jsx("td", { className: tk.td, onClick: (e) => e.stopPropagation(), children: r.resolvable && /* @__PURE__ */ jsx(Checkbox, { "aria-label": `Select ${rowName(r)}, seq ${r.seq}`, checked: picked.has(key), onChange: () => onPick([key], !picked.has(key)) }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TextLink, { expanded: isOpen, title: dateTime(r.ts), "aria-label": `${isOpen ? "Hide" : "Show"} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, children: relativeTime(r.ts, now) }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: COVERAGE_TONE[r.klass] ?? "neutral", children: r.klass }) }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: r.resource || r.source }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: shortPrincipal(r.actor) || "\u2014" }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: r.diff || "\u2014" }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: r.resolution ? /* @__PURE__ */ jsx(StatusChip, { tone: RESOLUTION_TONE[r.resolution] ?? "warn", children: STATE_WORDS[r.resolution] ?? r.resolution }) : /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "none recorded" }) })
         ] }, key);
       }) })
     ] }) }),
