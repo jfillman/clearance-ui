@@ -1,3 +1,4 @@
+import { assignLanes, fan, roundedPath, segHitsRect, segments, simplify, type Pt, type Rect } from './layout';
 import type { AttentionItem, GateTypeNode, GroupNode, MapEdge, MapResponse, MapStatus, ObserverNode, TargetNode } from './types';
 
 // The Map's data -> layout model (boards C9 and C6): which nodes are drawn where, which edges join them and how wide, and
@@ -17,11 +18,15 @@ export const MATRIX_THRESHOLD = 40;
 /** Rows drawn inside an expanded group before "+ n more: search to find one". */
 export const ROW_CAP = 12;
 
-// The viewBox is about the width the page gives the diagram, so a 12px label is drawn at about 12px.
-export const WIDTH = 860;
-const GATE = { x: 0, w: 230, h: 88, gap: 12 };
-const GROUP = { x: 330, w: 290, head: 60, row: 28, pad: 10, gap: 12 };
-const OBSERVER = { x: 720, w: 140, h: 52, gap: 12 };
+// Column geometry (the diagram's own units; the SVG scales to the page). Gate types, then the gutter the Clearance core sits
+// in, then the target groups, then the gutter the observers' watch lines run in, then the observers. Gutters widen with the
+// number of lines they carry, so a line always has its own lane.
+const GATE = { x: 0, w: 232, minH: 100, gap: 14 };
+const GROUP = { w: 270, minHead: 92, row: 46, pad: 10, gap: 16 };
+const OBSERVER = { w: 160, minH: 84, gap: 14 };
+const TOP = 44;
+export const EDGE_PITCH = 9;
+const MAX_STROKE = 6;
 
 export const statusRank = (s: string | undefined): number => ({ down: 2, attention: 1 }[s as 'down' | 'attention'] ?? 0);
 export const worseOf = (a: MapStatus, b: MapStatus): MapStatus => (statusRank(b) > statusRank(a) ? b : a);
@@ -59,9 +64,21 @@ export interface Placed {
 }
 const place = (x: number, y: number, w: number, h: number): Placed => ({ x, y, w, h, cx: x + w / 2, cy: y + h / 2 });
 
+/** What a gate type is, in words a person recognises: the clearance's own name and what it guards. Unknown types show as they are. */
+const GATE_WORDS: Record<string, { name: string; kind: string }> = {
+  glidepath: { name: 'Glidepath clearance-gate', kind: 'PR check' },
+  'g-argo': { name: 'G-ARGO', kind: 'Argo CD sync' },
+  'g-tf': { name: 'G-TF', kind: 'Terraform plan' },
+  autopilot: { name: 'Autopilot tool gate', kind: 'runtime' },
+  github: { name: 'GitHub deployment protection', kind: 'GitHub App' },
+};
+export const gateWords = (type: string): { name: string; kind: string } => GATE_WORDS[type] ?? { name: type, kind: 'gate' };
+
 export interface GateView extends Placed {
   node: GateTypeNode;
   dim: boolean;
+  name: string;
+  kind: string;
 }
 export interface RowView extends Placed {
   target: TargetNode;
@@ -70,8 +87,13 @@ export interface RowView extends Placed {
 export interface GroupView extends Placed {
   node: GroupNode;
   expanded: boolean;
+  /** Height of the always-drawn header (the rows of an expanded group sit under it). */
+  head: number;
   /** The targets this group holds after the filters (what its count says). */
   targets: TargetNode[];
+  /** Registry tiers and environments its targets name, for the subtitle. */
+  registries: string[];
+  envs: string[];
   rows: RowView[];
   hiddenRows: number;
   dim: boolean;
@@ -82,18 +104,39 @@ export interface ObserverView extends Placed {
   node: ObserverNode;
   dim: boolean;
 }
+export interface EdgeLabel {
+  text: string;
+  x: number;
+  y: number;
+  anchor: 'start' | 'end';
+  w: number;
+}
 export interface EdgeView {
   id: string;
   edge: MapEdge;
-  /** An orthogonal path: out, across to a staggered column, down or up, then in. */
+  /** Orthogonal points, source to destination: out, across to the line's own lane, vertical, in. Horizontal and vertical runs only. */
+  points: Pt[];
+  /** The same path with rounded elbows, for drawing. */
   d: string;
   width: number;
   dim: boolean;
+  /** Only where it adds meaning (refusals, a holding change, a blind observer) and only where it fits clear of everything else. */
+  label?: EdgeLabel;
+}
+export interface Column {
+  key: 'gates' | 'core' | 'targets' | 'observers';
+  x: number;
+  w: number;
+  label: string;
+  sub: string;
 }
 
 export interface Topology {
   width: number;
   height: number;
+  columns: Column[];
+  /** The Clearance core, drawn behind the lines that run through its gutter. */
+  core: Rect;
   gates: GateView[];
   groups: GroupView[];
   observers: ObserverView[];
@@ -105,20 +148,30 @@ export interface Topology {
 }
 
 /** An edge's line width from its decisions: log-scaled so 9 and 9,000 are both readable on one page. */
-export const edgeWidth = (volume: number): number => Math.min(9, 1.5 + 0.7 * Math.log2(1 + Math.max(0, volume)));
-
-/** Orthogonal path from (x0,y0) to (x1,y1): across to a column staggered by `lane`, vertical, across again. */
-export function orthogonal(x0: number, y0: number, x1: number, y1: number, lane: number): string {
-  const span = x1 - x0;
-  const xm = x0 + span * (0.28 + 0.09 * (lane % 6));
-  return y0 === y1 ? `M${x0} ${y0}H${x1}` : `M${x0} ${y0}H${xm}V${y1}H${x1}`;
-}
+export const edgeWidth = (volume: number): number => Math.min(MAX_STROKE, 1.5 + 0.4 * Math.log2(1 + Math.max(0, volume)));
 
 const matchCount = (q: string, groupHit: boolean, mine: TargetNode[], hits: (t: TargetNode) => boolean): number => {
   if (!q) return 0;
   return groupHit ? mine.length : mine.filter(hits).length;
 };
 const shownRows = (q: string, groupHit: boolean, mine: TargetNode[], hits: (t: TargetNode) => boolean): TargetNode[] => (q ? mine.filter(t => groupHit || hits(t)) : mine);
+
+/** A resolved edge: which node it leaves or enters, and (for a target edge into an open group) which row it ends on. */
+interface Resolved {
+  edge: MapEdge;
+  index: number;
+  src: GateView | ObserverView;
+  group: GroupView;
+  row?: RowView;
+}
+
+const textWidth = (s: string) => s.length * 6.6 + 8;
+const labelText = (e: MapEdge): string | undefined => {
+  if (e.kind === 'watches') return ({ down: 'blind', attention: 'stale' } as Record<string, string>)[e.status];
+  if (e.holding > 0) return `${e.holding} holding`;
+  if (e.refused > 0) return `${e.refused} refused`;
+  return undefined;
+};
 
 /** What is drawn for this response under these filters, with `expanded` groups opened into their target rows. */
 export function buildTopology(map: MapResponse, filters: MapFilters, expanded: string[]): Topology {
@@ -132,19 +185,17 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
   for (const t of targets) byGroup.set(t.group, [...(byGroup.get(t.group) ?? []), t]);
   const hits = (t: TargetNode) => !q || targetMatches(t, q);
 
-  // Gate types: with a registry filter, only the types that guard a remaining target.
-  const guardedTypes = new Set(targets.flatMap(t => t.gates.map(g => g.type)));
-  const gateNodes = map.nodes.gate_types.filter(g => !filteringTargets || guardedTypes.has(g.type));
-  const gateHit = (g: GateTypeNode) => !q || norm(g.type).includes(norm(q)) || targets.some(t => hits(t) && t.gates.some(x => x.type === g.type));
-  const gates: GateView[] = gateNodes.map((node, i) => ({
-    node,
-    ...place(GATE.x, i * (GATE.h + GATE.gap), GATE.w, GATE.h),
-    dim: (filters.attentionOnly && node.status === 'ok') || !gateHit(node),
-  }));
-
-  // Groups: a group the registry filter emptied is not drawn; a group name that matches the search matches all its targets.
-  const groups: GroupView[] = [];
-  let y = 0;
+  // Which groups are drawn and which rows are open, before anything is placed.
+  interface Pre {
+    node: GroupNode;
+    mine: TargetNode[];
+    open: boolean;
+    drawn: TargetNode[];
+    hidden: number;
+    matches: number;
+    groupHit: boolean;
+  }
+  const pre: Pre[] = [];
   for (const node of map.nodes.groups) {
     const mine = byGroup.get(node.group) ?? [];
     if (filteringTargets && mine.length === 0) continue;
@@ -154,53 +205,198 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
     const showable = open ? shownRows(q, groupHit, mine, hits) : [];
     // Worst first so the cap hides the quiet ones.
     const ordered = [...showable].sort((a, b) => statusRank(b.status) - statusRank(a.status) || a.name.localeCompare(b.name));
-    const drawn = ordered.slice(0, ROW_CAP);
-    const h = open ? GROUP.head + GROUP.pad + drawn.length * GROUP.row + (ordered.length > drawn.length ? GROUP.row : 0) + GROUP.pad : GROUP.head;
+    pre.push({ node, mine, open, drawn: ordered.slice(0, ROW_CAP), hidden: Math.max(0, ordered.length - ROW_CAP), matches, groupHit });
+  }
+  const preById = new Map(pre.map(p => [p.node.id, p]));
+  const rowOwner = new Map<string, Pre>(pre.flatMap(p => p.drawn.map((t): [string, Pre] => [`target:${t.id}`, p])));
+
+  // Edges that can be drawn: they end on a drawn group, or on a drawn row of an open one.
+  const usable = map.edges
+    .map((edge, index) => ({ edge, index, owner: preById.get(edge.to) ?? rowOwner.get(edge.to) }))
+    .filter((e): e is { edge: MapEdge; index: number; owner: Pre } => !!e.owner);
+  const inCount = new Map<string, number>();
+  const outCount = new Map<string, number>();
+  const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+  for (const { edge, owner } of usable) {
+    bump(edge.kind === 'guards' ? inCount : outCount, owner.node.id);
+    bump(edge.kind === 'guards' ? outCount : inCount, edge.from);
+  }
+  const need = (id: string, min: number) => Math.max(min, 28 + (Math.max(inCount.get(id) ?? 0, outCount.get(id) ?? 0)) * EDGE_PITCH);
+
+  // Groups: stacked, each as tall as its header and open rows need.
+  const groups: GroupView[] = [];
+  let y = TOP;
+  // Gutter widths come first: x positions of the groups depend on them.
+  const guardEdges = usable.filter(e => e.edge.kind === 'guards');
+  const watchEdges = usable.filter(e => e.edge.kind === 'watches');
+  const gutterA = Math.min(260, Math.max(150, 60 + guardEdges.length * 12));
+  const gutterB = Math.min(200, Math.max(110, 50 + watchEdges.length * 10));
+  const groupX = GATE.x + GATE.w + gutterA;
+  const observerX = groupX + GROUP.w + gutterB;
+  for (const p of pre) {
+    const head = need(p.node.id, GROUP.minHead);
+    const h = p.open ? head + GROUP.pad + p.drawn.length * GROUP.row + (p.hidden > 0 ? 24 : 0) + GROUP.pad : head;
     const top = y;
-    const rows: RowView[] = drawn.map((target, i) => ({
+    const rows: RowView[] = p.drawn.map((target, i) => ({
       target,
-      ...place(GROUP.x + 10, top + GROUP.head + GROUP.pad + i * GROUP.row, GROUP.w - 20, GROUP.row - 2),
+      ...place(groupX + 10, top + head + GROUP.pad + i * GROUP.row, GROUP.w - 20, GROUP.row - 4),
       dim: filters.attentionOnly && target.status === 'ok',
     }));
     groups.push({
-      node,
-      ...place(GROUP.x, y, GROUP.w, h),
-      expanded: open,
-      targets: mine,
+      node: p.node,
+      ...place(groupX, top, GROUP.w, h),
+      expanded: p.open,
+      head,
+      targets: p.mine,
+      registries: [...new Set(p.mine.map(t => t.registry).filter((r): r is string => !!r))],
+      envs: [...new Set(p.mine.map(t => t.env).filter((r): r is string => !!r))],
       rows,
-      hiddenRows: ordered.length - drawn.length,
-      dim: (filters.attentionOnly && node.status === 'ok') || (!!q && !groupHit && matches === 0),
-      matches,
+      hiddenRows: p.hidden,
+      dim: (filters.attentionOnly && p.node.status === 'ok') || (!!q && !p.groupHit && p.matches === 0),
+      matches: p.matches,
     });
     y += h + GROUP.gap;
   }
+  const groupById = new Map(groups.map(g => [g.node.id, g]));
+  const rowById = new Map<string, RowView>(groups.flatMap(g => g.rows.map((r): [string, RowView] => [`target:${r.target.id}`, r])));
 
-  const observers: ObserverView[] = map.nodes.observers.map((node, i) => ({
+  // Gate types and observers: ordered by where their lines go (barycentre of the groups they touch), then stacked.
+  const guardedTypes = new Set(targets.flatMap(t => t.gates.map(g => g.type)));
+  const gateNodes = map.nodes.gate_types.filter(g => !filteringTargets || guardedTypes.has(g.type));
+  const gateHit = (g: GateTypeNode) => !q || norm(g.type).includes(norm(q)) || targets.some(t => hits(t) && t.gates.some(x => x.type === g.type));
+  const centreOf = (id: string, kind: MapEdge['kind']): number | undefined => {
+    const ys = usable.filter(e => e.edge.kind === kind && e.edge.from === id).map(e => (rowById.get(e.edge.to) ?? groupById.get(e.owner.node.id)!).cy);
+    return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : undefined;
+  };
+  const byCentre = <T,>(items: T[], id: (t: T) => string, kind: MapEdge['kind']): T[] =>
+    items
+      .map((item, i) => ({ item, i, c: centreOf(id(item), kind) }))
+      .sort((a, b) => (a.c ?? Infinity) - (b.c ?? Infinity) || a.i - b.i)
+      .map(s => s.item);
+  const stack = <T,>(items: T[], id: (t: T) => string, minH: number, gap: number, make: (t: T, p: Placed) => unknown) => {
+    let at = TOP;
+    return items.map(item => {
+      const h = need(id(item), minH);
+      const p = place(0, at, 0, h);
+      at += h + gap;
+      return make(item, p);
+    });
+  };
+  const gates = stack(byCentre(gateNodes, g => g.id, 'guards'), g => g.id, GATE.minH, GATE.gap, (node, p): GateView => ({
     node,
-    ...place(OBSERVER.x, i * (OBSERVER.h + OBSERVER.gap), OBSERVER.w, OBSERVER.h),
+    ...place(GATE.x, p.y, GATE.w, p.h),
+    ...gateWords(node.type),
+    dim: (filters.attentionOnly && node.status === 'ok') || !gateHit(node),
+  })) as GateView[];
+  const observers = stack(byCentre(map.nodes.observers, o => o.id, 'watches'), o => o.id, OBSERVER.minH, OBSERVER.gap, (node, p): ObserverView => ({
+    node,
+    ...place(observerX, p.y, OBSERVER.w, p.h),
     dim: filters.attentionOnly && node.status === 'ok',
-  }));
-
-  // Edges. A group edge ends on the group's header; a target edge ends on its row when the row is drawn.
+  })) as ObserverView[];
   const gateById = new Map(gates.map(g => [g.node.id, g]));
   const obsById = new Map(observers.map(o => [o.node.id, o]));
-  const groupById = new Map(groups.map(g => [g.node.id, g]));
-  const rowById = new Map<string, { row: RowView; group: GroupView }>(groups.flatMap(g => g.rows.map((r): [string, { row: RowView; group: GroupView }] => [`target:${r.target.id}`, { row: r, group: g }])));
-  const edges: EdgeView[] = [];
-  map.edges.forEach((edge, i) => {
-    const end = rowById.get(edge.to);
-    const group = groupById.get(edge.to) ?? end?.group;
-    if (!group) return;
-    const toY = end ? end.row.cy : group.y + GROUP.head / 2;
+
+  const resolved: Resolved[] = [];
+  for (const { edge, index, owner } of usable) {
     const src = edge.kind === 'guards' ? gateById.get(edge.from) : obsById.get(edge.from);
-    if (!src) return;
-    const d = edge.kind === 'guards' ? orthogonal(src.x + src.w, src.cy, group.x, toY, i) : orthogonal(src.x, src.cy, group.x + group.w, toY, i);
-    const dim = src.dim || (end ? end.row.dim : group.dim) || (filters.attentionOnly && edge.status === 'ok');
-    edges.push({ id: `${edge.from}>${edge.to}`, edge, d, width: edge.kind === 'guards' ? edgeWidth(edge.volume) : 1.5, dim });
+    if (!src) continue;
+    resolved.push({ edge, index, src, group: groupById.get(owner.node.id)!, row: rowById.get(edge.to) });
+  }
+
+  // Attach points. On a gate or observer, a node's lines leave in the order of where they land; on a group they arrive in the
+  // order of where they come from, the header's lines fanned across the header and a row's lines across that row.
+  const attachSrc = new Map<number, number>();
+  const attachDst = new Map<number, number>();
+  const byNode = new Map<string, Resolved[]>();
+  for (const r of resolved) byNode.set(r.edge.from, [...(byNode.get(r.edge.from) ?? []), r]);
+  for (const list of byNode.values()) {
+    const src = list[0].src;
+    const dest = (r: Resolved) => (r.row ? r.row.cy : r.group.y + r.group.head / 2);
+    const sorted = [...list].sort((a, b) => dest(a) - dest(b) || a.index - b.index);
+    fan(sorted.length, src.y + 12, src.y + src.h - 12, EDGE_PITCH).forEach((v, i) => attachSrc.set(sorted[i].index, v));
+  }
+  for (const g of groups) {
+    for (const side of ['guards', 'watches'] as const) {
+      const mine = resolved.filter(r => r.group === g && r.edge.kind === side);
+      const head = mine.filter(r => !r.row).sort((a, b) => a.src.cy - b.src.cy || a.index - b.index);
+      fan(head.length, g.y + 12, g.y + g.head - 12, EDGE_PITCH).forEach((v, i) => attachDst.set(head[i].index, v));
+      for (const row of g.rows) {
+        const hit = mine.filter(r => r.row === row).sort((a, b) => a.src.cy - b.src.cy || a.index - b.index);
+        fan(hit.length, row.y + 6, row.y + row.h - 6, 6).forEach((v, i) => attachDst.set(hit[i].index, v));
+      }
+    }
+  }
+
+  // Lanes: guards run in the gutter between gates and groups, watches in the one between groups and observers.
+  const gate = { x0: GATE.x + GATE.w, x1: groupX };
+  const watch = { x0: groupX + GROUP.w, x1: observerX };
+  const laneFor = new Map<number, number>();
+  const guards = resolved.filter(r => r.edge.kind === 'guards');
+  const watches = resolved.filter(r => r.edge.kind === 'watches');
+  const pad = 14;
+  assignLanes(guards.map(r => ({ xs: gate.x0, sy: attachSrc.get(r.index)!, xe: gate.x1, ty: attachDst.get(r.index)! })), gate.x0 + pad, gate.x1 - pad).forEach((x, i) => laneFor.set(guards[i].index, x));
+  assignLanes(watches.map(r => ({ xs: watch.x1, sy: attachSrc.get(r.index)!, xe: watch.x0, ty: attachDst.get(r.index)! })), watch.x0 + pad, watch.x1 - pad).forEach((x, i) => laneFor.set(watches[i].index, x));
+
+  const edges: EdgeView[] = resolved.map(r => {
+    const g = r.edge.kind === 'guards';
+    const sy = attachSrc.get(r.index)!;
+    const ty = attachDst.get(r.index)!;
+    const xs = g ? gate.x0 : watch.x1;
+    const xe = g ? gate.x1 : watch.x0;
+    const lane = laneFor.get(r.index)!;
+    const raw: Pt[] = sy === ty ? [{ x: xs, y: sy }, { x: xe, y: ty }] : [{ x: xs, y: sy }, { x: lane, y: sy }, { x: lane, y: ty }, { x: xe, y: ty }];
+    const points = simplify(raw);
+    const dim = r.src.dim || (r.row ? r.row.dim : r.group.dim) || (filters.attentionOnly && r.edge.status === 'ok');
+    return { id: `${r.edge.from}>${r.edge.to}`, edge: r.edge, points, d: roundedPath(points), width: g ? Math.min(edgeWidth(r.edge.volume), MAX_STROKE) : 1.5, dim };
+  });
+
+  // Labels: only where the edge says something, and only on a run long enough to hold the text clear of every other line and box.
+  const boxes: Rect[] = [...gates, ...groups, ...observers];
+  const allSegs = edges.map(e => segments(e.points));
+  edges.forEach((e, ei) => {
+    const text = labelText(e.edge);
+    if (!text) return;
+    const w = textWidth(text);
+    const segs = segments(e.points).filter(s => s.a.y === s.b.y);
+    for (const s of [segs[0], segs[segs.length - 1]]) {
+      if (!s) continue;
+      const lo = Math.min(s.a.x, s.b.x);
+      const hi = Math.max(s.a.x, s.b.x);
+      if (hi - lo < w + 10) continue;
+      // beside the node end for a guard (the gate's side), at the group's end for a watch
+      const startAtLeft = s === segs[0] ? s.a.x <= s.b.x : s.b.x <= s.a.x;
+      const x = startAtLeft ? lo + 5 : hi - 5 - w;
+      const box: Rect = { x, y: s.a.y - 16, w, h: 14 };
+      const clear = allSegs.every((ss, i) => i === ei || ss.every(o => !segHitsRect(o, box, false))) && boxes.every(b => !(box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y));
+      if (clear) {
+        e.label = { text, x: x + w / 2, y: s.a.y - 5, anchor: 'start', w };
+        break;
+      }
+    }
   });
 
   const bottom = (xs: Placed[]) => xs.reduce((m, p) => Math.max(m, p.y + p.h), 0);
-  return { width: WIDTH, height: Math.max(bottom(gates), bottom(groups), bottom(observers), 60), gates, groups, observers, edges, matrix, targets };
+  const height = Math.max(bottom(gates), bottom(groups), bottom(observers), 60) + 6;
+  const instances = gateNodes.reduce((n, g) => n + g.instances, 0);
+  const shown = groups.reduce((n, g) => n + g.targets.length, 0);
+  const columns: Column[] = [
+    { key: 'gates', x: GATE.x, w: GATE.w, label: 'Gate types', sub: `${instances} instances` },
+    { key: 'core', x: gate.x0, w: gate.x1 - gate.x0, label: 'Clearance core', sub: 'decides · records' },
+    { key: 'targets', x: groupX, w: GROUP.w, label: 'Protected targets', sub: `${shown} in ${groups.length} ${groups.length === 1 ? 'group' : 'groups'}` },
+    { key: 'observers', x: observerX, w: OBSERVER.w, label: 'Observers', sub: 'watch the targets' },
+  ];
+  return {
+    width: observerX + OBSERVER.w,
+    height,
+    columns,
+    core: { x: gate.x0 + 6, y: TOP - 8, w: gate.x1 - gate.x0 - 12, h: height - TOP + 8 },
+    gates,
+    groups,
+    observers,
+    edges,
+    matrix,
+    targets,
+  };
 }
 
 /** The attention list after the filters: attention-only is already what it is; a search keeps the items that name a match. */

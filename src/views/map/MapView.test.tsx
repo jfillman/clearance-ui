@@ -91,6 +91,96 @@ it('focusing a node opens its popover; Escape closes a pinned one', async () => 
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
+it('labels every box: column heads, the gate type in words with its kind and instance count, the group with its kind and tier, the observer with its health', async () => {
+  await renderTab();
+  for (const head of ['Gate types', 'Clearance core', 'Protected targets', 'Observers']) expect(screen.getAllByText(head).length).toBeGreaterThan(0);
+  const gate = screen.getByTestId('gate-glidepath');
+  expect(within(gate).getByText('Glidepath clearance-gate')).toBeTruthy();
+  expect(within(gate).getByText('PR check · 2 instances')).toBeTruthy();
+  expect(within(screen.getByTestId('gate-g-tf')).getByText('Terraform plan · 1 instance')).toBeTruthy();
+  const group = screen.getByTestId('group-hangar-prod');
+  expect(within(group).getByText(/2 k8s-namespace · flight · prod/)).toBeTruthy();
+  const obs = screen.getByTestId('observer-observe-aws');
+  expect(within(obs).getByText('observer')).toBeTruthy();
+  expect(within(obs).getByText('1 blind')).toBeTruthy();
+  // the legend explains the bars and lines
+  expect(within(screen.getByRole('group', { name: 'Legend' })).getByText(/observer watching/)).toBeTruthy();
+});
+
+describe('the hover popover does not flicker', () => {
+  const wait = (ms: number) => act(async () => { await new Promise(r => setTimeout(r, ms)); });
+
+  it('shows once for a node, stays while the pointer crosses onto it, and hides once after the pointer leaves both', async () => {
+    await renderTab();
+    const log: string[] = [];
+    const mo = new MutationObserver(records => {
+      for (const r of records) {
+        r.addedNodes.forEach(n => (n as Element).querySelector?.('[data-testid=map-popover]') || (n as Element).getAttribute?.('data-testid') === 'map-popover' ? log.push('show') : undefined);
+        r.removedNodes.forEach(n => (n as Element).querySelector?.('[data-testid=map-popover]') || (n as Element).getAttribute?.('data-testid') === 'map-popover' ? log.push('hide') : undefined);
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    await act(async () => {
+      fireEvent.mouseEnter(argo);
+    });
+    const pop = screen.getByRole('dialog', { name: 'g-argo details' });
+    expect(argo.contains(pop)).toBe(false); // never a child of the node it describes
+    // pointer leaves the node and is on the popover before the hide delay is up: the popover must stay
+    await act(async () => {
+      fireEvent.mouseLeave(argo);
+    });
+    await wait(40);
+    await act(async () => {
+      fireEvent.mouseEnter(pop);
+    });
+    await wait(400);
+    expect(screen.getByRole('dialog', { name: 'g-argo details' })).toBe(pop);
+    // leaving the popover hides it, once
+    await act(async () => {
+      fireEvent.mouseLeave(pop);
+    });
+    expect(screen.queryByRole('dialog')).not.toBeNull(); // not before the delay
+    await wait(400);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    mo.disconnect();
+    expect(log).toEqual(['show', 'hide']);
+  });
+
+  it('a pointer jittering over the node edge (enter, leave, enter) keeps one popover, not a show/hide loop', async () => {
+    await renderTab();
+    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    const seen: boolean[] = [];
+    for (let i = 0; i < 6; i++) {
+      await act(async () => {
+        fireEvent.mouseEnter(argo);
+      });
+      seen.push(!!screen.queryByRole('dialog'));
+      await act(async () => {
+        fireEvent.mouseLeave(argo);
+      });
+      seen.push(!!screen.queryByRole('dialog')); // still up: the hide is delayed
+    }
+    expect(seen.every(Boolean)).toBe(true);
+    await wait(400);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('moving from one node to the next swaps the popover, no gap, and a group popover has its action inside it', async () => {
+    await renderTab();
+    const argo = screen.getByRole('button', { name: /Gate type g-argo/ });
+    const group = screen.getByRole('button', { name: /Group hangar-prod/ });
+    await act(async () => {
+      fireEvent.mouseEnter(argo);
+      fireEvent.mouseLeave(argo);
+      fireEvent.mouseEnter(group);
+    });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    const pop = screen.getByRole('dialog', { name: 'hangar-prod details' });
+    expect(within(pop).getByText('Show targets')).toBeTruthy();
+  });
+});
+
 it('Enter on a group opens it and re-reads the Map with expand=; Enter on its target drills down', async () => {
   const { opened } = await renderTab();
   const group = screen.getByRole('button', { name: /Group hangar-prod/ });

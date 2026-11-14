@@ -10,13 +10,16 @@ import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
 
+const POP_W = 272;
 const useMapStyles = makeStyles((theme) => {
   const t = tokensForTheme(theme);
   return {
     "@keyframes mapFlow": { to: { strokeDashoffset: -24 } },
-    stage: { position: "relative", padding: "14px 16px 12px" },
-    scroll: { overflowX: "auto", overflowY: "visible" },
-    svg: { display: "block", width: "100%", minWidth: 720, height: "auto", overflow: "visible" },
+    stage: { padding: "14px 16px 12px" },
+    scroll: { overflowX: "auto", overflowY: "hidden" },
+    // the box the popover is positioned in: the diagram's own, so its pixel coordinates are the SVG's
+    canvas: { position: "relative" },
+    svg: { display: "block", width: "100%", minWidth: 760, height: "auto" },
     node: {
       cursor: "pointer",
       outline: "none",
@@ -26,11 +29,15 @@ const useMapStyles = makeStyles((theme) => {
     nodeDim: { opacity: 0.28 },
     nodeTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.lg, fill: t.textHi },
     nodeText: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.textLo },
+    nodeKind: { fontFamily: fontMono, fontWeight: 500, fontSize: fontScale.xs, letterSpacing: "0.02em", textTransform: "uppercase", fill: t.textFaint },
+    nodeName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: fontScale.md, fill: t.textHi },
     nodeStrong: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.textHi },
     nodeAmber: { fontFamily: fontMono, fontSize: fontScale.sm, fill: t.amberText },
     colHead: { fontFamily: fontMono, fontWeight: 600, fontSize: fontScale.xs, letterSpacing: "0.1em", textTransform: "uppercase", fill: t.textLo },
     row: { "& .rowFrame": { fill: t.panelAlt, stroke: "none" }, "&:hover .rowFrame, &:focus-visible .rowFrame": { stroke: t.sky, strokeWidth: 1.5 } },
     edge: { fill: "none", strokeLinejoin: "round", strokeLinecap: "butt" },
+    edgeLabel: { fontFamily: fontMono, fontSize: fontScale.xs, fill: t.textLo },
+    core: { fill: t.skySoft, stroke: t.skyLine, strokeWidth: 1, strokeDasharray: "3 4" },
     flow: {
       fill: "none",
       stroke: t.sky,
@@ -42,13 +49,13 @@ const useMapStyles = makeStyles((theme) => {
     popover: {
       position: "absolute",
       zIndex: 3,
-      width: 280,
+      width: POP_W,
       maxWidth: "calc(100% - 16px)",
       backgroundColor: t.panel,
       border: `1px solid ${t.line}`,
       borderRadius: 6,
       padding: "10px 12px",
-      boxShadow: `0 4px 14px ${t.bg}`,
+      boxShadow: `0 6px 18px ${t.bg}`,
       fontFamily: fontBody,
       fontSize: fontScale.sm,
       color: t.textHi,
@@ -60,6 +67,7 @@ const useMapStyles = makeStyles((theme) => {
     popFacts: { display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: fontScale.sm, "& dt": { color: t.textLo }, "& dd": { margin: 0, textAlign: "right" } },
     legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 16px", padding: "8px 16px 12px", fontFamily: fontMono, fontSize: fontScale.xs, color: t.textLo },
     legendItem: { display: "inline-flex", alignItems: "center", gap: 6 },
+    legendDot: { display: "inline-block", width: 9, height: 9, borderRadius: 2 },
     swatch: { display: "inline-block", width: 22, height: 0, borderTopWidth: 3, borderTopStyle: "solid" },
     swatchOk: { borderTopColor: t.good },
     swatchAttn: { borderTopColor: t.amber },
@@ -115,5 +123,5 @@ const useMapStyles = makeStyles((theme) => {
   };
 });
 
-export { useMapStyles };
+export { POP_W, useMapStyles };
 //# sourceMappingURL=styles.esm.js.map
