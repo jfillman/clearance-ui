@@ -14,6 +14,7 @@ import { useClearanceRead } from '../../kit/read.esm.js';
 import { useClearanceWrite, BULK_RESOLUTION_LIMIT, ControlError } from '../../kit/write.esm.js';
 import { useScopes, useCoverage, statusOf, readDeniedText, CoverageBanner } from '../../kit/coverage.esm.js';
 import { DEFAULT_PAGE_SIZE, pageSlice, PAGE_SIZES, Pager } from '../../kit/Pager.esm.js';
+import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 import { historyOf, diffSummary, REDACTED } from './diff.esm.js';

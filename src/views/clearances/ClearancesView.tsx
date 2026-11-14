@@ -84,6 +84,11 @@ const useStyles = makeStyles<Theme>(() => ({
   actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   reason: { flex: '1 1 220px', width: 'auto' },
   selectable: { userSelect: 'text' },
+  // The Objects table: Object and Change get the room; Fields takes what is left. Without widths the browser sizes the
+  // columns by their longest unbroken text, and a long field list or image ref squeezes Object and Change into wraps.
+  colObject: { width: '48%', minWidth: 240 },
+  colChange: { width: '1%', whiteSpace: 'nowrap' },
+  colFields: { width: '51%', minWidth: 160 },
   stack: { display: 'flex', flexDirection: 'column', gap: 16, padding: 12 },
 }));
 
@@ -151,14 +156,14 @@ export function ClearanceDetail({ change, onChanged }: { change: Change; onChang
       </div>
       <div className={c.scroll}>
         <table className={tk.table} aria-label="Objects this change touches">
-          <thead><tr><th className={tk.th}>Object</th><th className={tk.th}>Change</th><th className={tk.th}>Fields</th></tr></thead>
+          <thead><tr><th className={`${tk.th} ${c.colObject}`}>Object</th><th className={`${tk.th} ${c.colChange}`}>Change</th><th className={`${tk.th} ${c.colFields}`}>Fields</th></tr></thead>
           <tbody>
             {change.objects.slice(0, 100).map(o => {
               const why = change.reasons.find(r => r.subject === `${o.kind} ${o.namespace ? `${o.namespace}/` : ''}${o.name}`);
               return (
                 <tr key={`${o.kind}/${o.namespace}/${o.name}`}>
                   <td className={tk.td}><Chip>{o.kind}</Chip> <span className={tk.meta}>{o.namespace ? `${o.namespace}/` : ''}{o.name}</span>{why && <> <TierBadge tier={why.tier} policy={policy}>T{why.tier} {why.rule}</TierBadge></>}</td>
-                  <td className={tk.td}><span className={tk.meta}>{o.op}</span></td>
+                  <td className={`${tk.td} ${c.colChange}`}><span className={tk.meta}>{o.op}</span></td>
                   <td className={tk.td}><span className={tk.meta}>{o.fields.slice(0, 6).join(', ')}{o.fields.length > 6 ? ` +${o.fields.length - 6}` : ''}{o.images.length ? ` → ${o.images.join(', ')}` : ''}</span></td>
                 </tr>
               );

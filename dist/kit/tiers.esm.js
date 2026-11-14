@@ -1,5 +1,6 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import Popper from '@material-ui/core/Popper';
 import { Tooltip, Chip, FilterGroup, FilterChip, Checkbox, StatusChip, Button } from './kit.esm.js';
 import { tierTone } from './components.esm.js';
 import { useTiers } from './kitStyles.esm.js';
@@ -157,10 +158,14 @@ function TierFilter({ value, onChange, policy, source, counts }) {
   const c = useTiers();
   const [open, setOpen] = useState(false);
   const root = useRef(null);
+  const pop = useRef(null);
   const defs = useMemo(() => tierDefs(policy), [policy]);
   useEffect(() => {
     if (!open) return void 0;
-    const outside = (e) => root.current && !root.current.contains(e.target) && setOpen(false);
+    const outside = (e) => {
+      const n = e.target;
+      if (root.current && !root.current.contains(n) && !pop.current?.contains(n)) setOpen(false);
+    };
     const esc = (e) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", esc);
@@ -175,7 +180,7 @@ function TierFilter({ value, onChange, policy, source, counts }) {
       value.length ? [...value].sort().join(", ") : "all",
       " \u25BE"
     ] }) }),
-    open && /* @__PURE__ */ jsxs("div", { className: c.popover, role: "dialog", "aria-label": "Change tiers", children: [
+    /* @__PURE__ */ jsx(Popper, { open, anchorEl: root.current, placement: "bottom-start", style: { zIndex: 1300 }, modifiers: { flip: { enabled: true }, preventOverflow: { enabled: true, boundariesElement: "viewport" } }, children: /* @__PURE__ */ jsxs("div", { className: c.popover, role: "dialog", "aria-label": "Change tiers", ref: pop, children: [
       /* @__PURE__ */ jsxs("div", { className: c.popHead, children: [
         /* @__PURE__ */ jsx("h3", { className: c.popTitle, children: "Change tiers" }),
         /* @__PURE__ */ jsx("span", { className: c.popSub, children: "How much a change can hurt, set by what it touches. Tick tiers to filter the list." })
@@ -213,7 +218,7 @@ function TierFilter({ value, onChange, policy, source, counts }) {
         " ",
         source === "policy" ? `Showing the policy in force${policy?.version ? ` (${policy.version})` : ""}.` : "Showing the gate's baseline."
       ] })
-    ] })
+    ] }) })
   ] });
 }
 
