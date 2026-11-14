@@ -34,6 +34,7 @@ const mockApis: Record<string, unknown> = {
       else if (path.startsWith('/v1/clearances/counts') && path.includes('by=tier')) body = { items: [{ key: '3', count: 2 }, { key: '1', count: 6 }], total: 8 };
       else if (path.startsWith('/v1/clearances/counts')) body = path.includes('cleared_by') ? { items: [{ key: 'policy', count: 5 }, { key: 'people', count: 2 }], total: 7 } : { items: [{ key: 'holding', count: 1 }, { key: 'denied', count: 1 }], total: 2 };
       else if (path.startsWith('/v1/clearances/ch-1')) body = change();
+      else if (path.startsWith('/v1/clearances/ch-9')) body = change({ id: 'ch-9', app: 'flight-api' });
       else if (path.startsWith('/v1/clearances')) body = { items: [change()], next: null };
       return body ? { ok: true, status: 200, json: async () => body } : { ok: false, status: 404, json: async () => ({ error: 'no' }) };
     },
@@ -103,4 +104,34 @@ it('the Tier filter asks for one read per chosen tier, shows the key with the po
   });
   expect(gets.some(g => g.startsWith('/v1/clearances?') && g.includes('tier=2'))).toBe(true);
   expect(screen.getByRole('button', { name: /2, 3/ }).getAttribute('aria-pressed')).toBe('true');
+});
+
+it('opens the change inline directly under its row, scrolls it into view, one at a time, Escape closes', async () => {
+  const scroll = jest.fn();
+  Element.prototype.scrollIntoView = scroll;
+  await act(async () => {
+    render(<ClearancesView now={NOW} />);
+  });
+  const row = (await screen.findByText('ch-1 · jfillman/gitops-gate-api#7@aaaaaaa · dana', { exact: false })).closest('tr')!;
+  await act(async () => {
+    fireEvent.click(row);
+  });
+  const detail = await screen.findByRole('region', { name: 'Change detail' });
+  expect(row.nextElementSibling!.contains(detail)).toBe(true);
+  expect(detail.closest('table')).toBe(row.closest('table'));
+  expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }));
+  expect(await screen.findByRole('region', { name: 'Change history' })).toBeTruthy();
+  fireEvent.keyDown(row, { key: 'Escape' });
+  expect(screen.queryByRole('region', { name: 'Change detail' })).toBeNull();
+});
+
+it('a deep link opens its change inline even when the list does not hold it', async () => {
+  Element.prototype.scrollIntoView = jest.fn();
+  await act(async () => {
+    render(<ClearancesView now={NOW} initial="ch-9" />);
+  });
+  const detail = await screen.findByRole('region', { name: 'Change detail' });
+  expect(within(detail).getByText('flight-api · prod')).toBeTruthy();
+  expect(detail.closest('table')).toBeTruthy();
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 });

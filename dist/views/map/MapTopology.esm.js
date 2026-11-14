@@ -8,6 +8,7 @@ import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import '../../kit/ExpandRow.esm.js';
 import { ROW_CAP, WIDTH } from './model.esm.js';
 import { statusColor, statusWord, mixWords, CoverageMix, statusTone } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';

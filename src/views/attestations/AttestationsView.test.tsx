@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { act, fireEvent, render as rtlRender, type RenderOptions, screen, within } from '@testing-library/react';
 import { ClearanceTransportProvider, createFetchTransport } from '../../kit';
+import { keylessBundle } from './bundleFixture';
 import { AttestationsView, searchRows, windowSince } from './AttestationsView';
 
 const NOW = Date.parse('2026-11-12T20:00:00Z');
@@ -10,6 +11,7 @@ const row = (n: number, over: Record<string, unknown> = {}) => ({
 });
 let config: any;
 let pages: Record<string, any>;
+let verifyAnswer: any;
 const gets: string[] = [];
 const mockApis: Record<string, unknown> = {
   'core.discovery': { getBaseUrl: async () => 'http://be/api/clearance' },
@@ -23,6 +25,10 @@ const mockApis: Record<string, unknown> = {
         if (path.includes('by=attestation')) return ok({ items: [{ key: 'attested', count: 12 }, { key: 'pending', count: 1 }, { key: 'none', count: 4 }], total: 17 });
         return ok({ items: path.includes('by=app') ? [{ key: 'flight-api', count: 3 }, { key: 'gate-api', count: 4 }] : [{ key: 'dev', count: 1 }, { key: 'prod', count: 6 }], total: 7 });
       }
+      if (path.endsWith('/attestation/verify')) return verifyAnswer ? ok(verifyAnswer) : { ok: false, status: 404, json: async () => ({ error: 'no' }), text: async () => '{}' };
+      if (path.endsWith('/attestation')) return ok(null) && { ok: true, status: 200, json: async () => JSON.parse(keylessBundle()), text: async () => keylessBundle() };
+      if (/^\/v1\/clearances\/ch-\d+\/records/.test(path)) return ok({ items: [{ seq: 7, hash: 'h'.repeat(64), tool: 'deploy.request', ts: '2026-11-12T17:00:00Z', principal: 'app:x', record: {} }], next: null });
+      if (/^\/v1\/clearances\/ch-\d+$/.test(path)) return ok({ id: path.split('/').pop(), state: 'cleared', outcome: null, attestation: null, expires_at: '2026-11-19T00:00:00Z', tree_digest: 'c'.repeat(64), policy_version: 'p' });
       if (path.startsWith('/v1/attestations')) return ok(path.includes('after=') ? pages.second : pages.first);
       return { ok: false, status: 404, json: async () => ({ error: 'no' }), text: async () => '{}' };
     },
@@ -39,6 +45,8 @@ const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
 
 beforeEach(() => {
   gets.length = 0;
+  verifyAnswer = undefined;
+  Element.prototype.scrollIntoView = jest.fn();
   config = { verifiable: true, modes: ['keyless'], rekor_url: 'https://rekor.example', rekor_entry_url: 'https://rekor.example/e/{log_index}', key_ids: ['key-a'], verify_commands: [] };
   pages = { first: { items: [row(1, { verification: { verified: true, checked_at: '2026-11-12T19:30:00Z' } }), row(2), row(3, { rekor_log_index: null, key_id: undefined })], next: 103 }, second: { items: [row(4)], next: null } };
 });
@@ -87,15 +95,102 @@ it('a Clearance with no trust says signed (recorded) on every row, even one the 
   expect(screen.getAllByText(/no trust configured/i).length).toBeGreaterThan(0);
 });
 
-it('a row opens its change; the Rekor link does not', async () => {
+const rowsOf = () => within(screen.getByRole('table', { name: 'Signed attestations' })).getAllByRole('row');
+
+it('a row expands the attestation inline, under the row, and does not leave the tab; the Rekor link does not toggle it', async () => {
   const opened: string[] = [];
   await open(id => opened.push(id));
-  const first = within(screen.getByRole('table', { name: 'Signed attestations' })).getAllByRole('row')[1];
+  const first = rowsOf()[1];
   fireEvent.click(within(first).getByRole('link', { name: /1,001/ }));
+  expect(screen.queryByRole('region', { name: 'Attestation detail' })).toBeNull();
+  await act(async () => {
+    fireEvent.click(first);
+  });
+  const detail = screen.getByRole('region', { name: 'Attestation detail' });
+  expect(first.nextElementSibling!.contains(detail)).toBe(true);
   expect(opened).toEqual([]);
-  fireEvent.click(first);
-  fireEvent.keyDown(first, { key: 'Enter' });
-  expect(opened).toEqual(['ch-1', 'ch-1']);
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }));
+  // one at a time
+  await act(async () => {
+    fireEvent.click(rowsOf().find(r => r.textContent?.includes('ch-2'))!);
+  });
+  expect(screen.getAllByRole('region', { name: 'Attestation detail' })).toHaveLength(1);
+  await act(async () => {
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Attestation detail' }), { key: 'Escape' });
+  });
+  expect(screen.queryByRole('region', { name: 'Attestation detail' })).toBeNull();
+});
+
+it('the detail decodes the signed statement, shows the signer and the Rekor entry, and offers the bundle and the open-the-change link', async () => {
+  config.verify_commands = ['clearance attest verify --bundle attestation-ch-1.json'];
+  config.identity = 'https://github.com/example/clearance/.github/workflows/sign.yml@refs/heads/main';
+  config.issuer = 'https://token.actions.example';
+  const opened: string[] = [];
+  await open(id => opened.push(id));
+  await act(async () => {
+    fireEvent.click(rowsOf()[1]);
+  });
+  const statement = await screen.findByRole('region', { name: 'Signed statement' });
+  expect(within(statement).getByText('https://clearance.hangarplatform.dev/change-attestation/v1')).toBeTruthy();
+  expect(within(statement).getByText('application/vnd.in-toto+json')).toBeTruthy();
+  expect(within(statement).getByText('rel-0142')).toBeTruthy();
+  expect(within(statement).getByText('people: user:erin (owner)')).toBeTruthy();
+  expect(within(statement).getByText('42')).toBeTruthy();
+  const signer = screen.getByRole('region', { name: 'Signer and log entry' });
+  expect(signer.textContent).toContain('keyless');
+  expect(signer.textContent).toContain('https://token.actions.example');
+  expect(within(signer).getByRole('link', { name: /41,872,035/ }).getAttribute('href')).toBe('https://rekor.example/e/41872035');
+  expect(signer.textContent).toContain('2026');
+  expect(await screen.findByRole('region', { name: 'Change history' })).toBeTruthy();
+  expect(screen.getByLabelText('Offline verify command')).toBeTruthy();
+  expect((screen.getByRole('button', { name: 'Download bundle' }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByText('Open the change in Clearances'));
+  expect(opened).toEqual(['ch-1']);
+});
+
+it('verification comes only from the verify answer: verified, failed with reasons, or signed (recorded) with no trust', async () => {
+  verifyAnswer = { verified: true, cached: false, checked_at: '2026-11-12T19:50:00Z', digest: 'd', subject: 's', mode: 'keyless', identity: 'id@example', issuer: 'https://iss.example', rekor: { log_index: 1001, integrated_time: '2026-11-12T10:00:00Z', verified: true }, errors: [] };
+  await open();
+  await act(async () => {
+    fireEvent.click(rowsOf()[2]); // row 2 carries no earlier answer
+  });
+  const detail = await screen.findByRole('region', { name: 'Attestation detail' });
+  await within(detail).findByText(/Clearance re-checked the signature/);
+  expect(within(detail).getAllByText('verified').length).toBeGreaterThan(0);
+  expect(screen.getByRole('region', { name: 'Signer and log entry' }).textContent).toContain('id@example');
+});
+
+it('a failed verify shows the reasons, never "verified"', async () => {
+  verifyAnswer = { verified: false, cached: false, checked_at: '2026-11-12T19:50:00Z', digest: 'd', subject: 's', rekor: { log_index: null, integrated_time: null, verified: false }, errors: ['signature does not match', 'subject digest differs'] };
+  await open();
+  await act(async () => {
+    fireEvent.click(rowsOf()[2]);
+  });
+  const detail = await screen.findByRole('region', { name: 'Attestation detail' });
+  await within(detail).findByText(/signature does not match; subject digest differs/);
+  expect(within(detail).getByText('verification failed')).toBeTruthy();
+  expect(within(detail).queryByText('verified')).toBeNull();
+});
+
+it('with no trust configured the detail says signed (recorded) and never calls verify', async () => {
+  config.verifiable = false;
+  await open();
+  await act(async () => {
+    fireEvent.click(rowsOf()[2]);
+  });
+  const detail = await screen.findByRole('region', { name: 'Attestation detail' });
+  expect(within(detail).getByText('signed (recorded)')).toBeTruthy();
+  expect(within(detail).queryByText('verified')).toBeNull();
+  expect(gets.some(g => g.endsWith('/attestation/verify'))).toBe(false);
+});
+
+it('a deep link (?change=<id>) opens that change\'s attestation row on load', async () => {
+  await act(async () => {
+    render(<AttestationsView now={NOW} initial="ch-2" />);
+  });
+  const detail = await screen.findByRole('region', { name: 'Attestation detail' });
+  expect(within(detail).getByText('ch-2')).toBeTruthy();
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 });
 
 it('filters: app and env and window go to the API; search narrows the loaded rows', async () => {

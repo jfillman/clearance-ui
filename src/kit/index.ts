@@ -15,3 +15,4 @@ export * from './ProductMark';
 export * from './coverage';
 export * from './Pager';
 export * from './tiers';
+export * from './ExpandRow';

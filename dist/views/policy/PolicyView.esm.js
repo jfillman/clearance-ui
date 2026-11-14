@@ -12,6 +12,7 @@ import { useClearanceRead } from '../../kit/read.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '../../kit/kitStyles.esm.js';
+import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 
 const WEEK_MS = 7 * 864e5;
 const useStyles = makeStyles(() => ({
@@ -20,6 +21,7 @@ const useStyles = makeStyles(() => ({
   pad: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 10 },
   path: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   verdict: { display: "flex", flexDirection: "column", gap: 6 },
+  ruleDetail: { display: "flex", flexDirection: "column", gap: 6, padding: "10px 18px" },
   run: { alignSelf: "flex-start" }
 }));
 function PolicyView({ now: nowProp }) {
@@ -62,27 +64,24 @@ function PolicyView({ now: nowProp }) {
           /* @__PURE__ */ jsx("tbody", { children: rules.map((r) => {
             const n = hitsByRule.get(r.id) ?? 0;
             const isOpen = open === r.id;
-            return [
-              /* @__PURE__ */ jsxs("tr", { className: `${tk.rowLink} ${isOpen ? tk.rowSelected : ""}`, "aria-expanded": isOpen, tabIndex: 0, onClick: () => setOpen(isOpen ? void 0 : r.id), onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && setOpen(isOpen ? void 0 : r.id), children: [
-                /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { children: r.id }) }),
-                /* @__PURE__ */ jsx("td", { className: tk.td, children: r.name }),
-                /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.expression }) }),
-                /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { tone: r.pack === "core" ? "neutral" : "sky", children: r.pack }) }),
-                /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, style: { color: n ? t.amberText : t.textFaint }, children: n }) })
-              ] }, r.id),
-              isOpen && /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { className: tk.td, colSpan: 5, children: /* @__PURE__ */ jsxs("div", { className: c.verdict, children: [
-                /* @__PURE__ */ jsxs(Hint, { children: [
-                  /* @__PURE__ */ jsx("b", { children: "Message" }),
-                  " ",
-                  r.message
-                ] }),
-                /* @__PURE__ */ jsxs(Hint, { children: [
-                  /* @__PURE__ */ jsx("b", { children: "Hint to the agent" }),
-                  " ",
-                  r.hint
-                ] })
-              ] }) }) }, `${r.id}-detail`)
-            ];
+            return /* @__PURE__ */ jsxs(ExpandRow, { id: `rule-${r.id}`, open: isOpen, onToggle: () => setOpen(isOpen ? void 0 : r.id), colSpan: 5, label: `Rule ${r.id} detail`, details: /* @__PURE__ */ jsxs("div", { className: c.ruleDetail, children: [
+              /* @__PURE__ */ jsxs(Hint, { children: [
+                /* @__PURE__ */ jsx("b", { children: "Message" }),
+                " ",
+                r.message
+              ] }),
+              /* @__PURE__ */ jsxs(Hint, { children: [
+                /* @__PURE__ */ jsx("b", { children: "Hint to the agent" }),
+                " ",
+                r.hint
+              ] })
+            ] }), children: [
+              /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { children: r.id }) }),
+              /* @__PURE__ */ jsx("td", { className: tk.td, children: r.name }),
+              /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.expression }) }),
+              /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { tone: r.pack === "core" ? "neutral" : "sky", children: r.pack }) }),
+              /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, style: { color: n ? t.amberText : t.textFaint }, children: n }) })
+            ] }, r.id);
           }) })
         ] }) })
       ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool registry", title: "Tool registry", meta: /* @__PURE__ */ jsx(Count, { children: "what an agent may be granted; the tier is the authority a call needs" }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
