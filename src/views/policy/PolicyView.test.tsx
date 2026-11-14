@@ -24,7 +24,7 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
   const css = Array.from(document.querySelectorAll('style')).map(st => st.textContent ?? '').join('\n');
   const fixed = table.className.split(/\s+/).find(k => k.includes('fixed'))!;
   expect(css).toMatch(new RegExp(`\\.${fixed}\\s*\\{[^}]*table-layout: fixed`));
-  // The long name is in a chip that is allowed to wrap, and carries the full name as its title.
+  // The long name is in a chip that is allowed to wrap,.
   const chip = screen.getByText(longName);
   expect(chip.className).toMatch(/wrapChip/);
   expect(table.querySelectorAll('col').length).toBe(5);

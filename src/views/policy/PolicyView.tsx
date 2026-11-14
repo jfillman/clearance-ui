@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import {
@@ -14,6 +14,7 @@ import {
   Hint,
   PanelSkeleton,
   Section,
+  Tooltip,
   StatusChip,
   TabError,
   TierChip,
@@ -75,15 +76,23 @@ const useStyles = makeStyles<Theme>(() => ({
   // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
   // own column instead of widening the table past the panel (the holder above is only a fallback for very narrow panels).
   fixed: { tableLayout: 'fixed' },
-  wrap: { overflowWrap: 'anywhere', minWidth: 0 },
-  // Chip is nowrap by default; a tool name is the one value long enough to need to wrap (doubled class beats the chip's own).
-  wrapChip: { '&&': { whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35, textAlign: 'left', maxWidth: '100%' } },
+  wrap: { overflowWrap: 'break-word', minWidth: 0 },
+  // One line with an ellipsis (the full value is the Tooltip), for a value with no place to break, such as a target URL.
+  clip: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  // Chip is nowrap by default; a tool name wraps, but only after a dot or underscore (see breakable); doubled class beats the chip's own.
+  wrapChip: { '&&': { whiteSpace: 'normal', overflowWrap: 'break-word', lineHeight: 1.35, textAlign: 'left', maxWidth: '100%' } },
   pad: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
   path: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   verdict: { display: 'flex', flexDirection: 'column', gap: 6 },
   ruleDetail: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 18px' },
   run: { alignSelf: 'flex-start' },
 }));
+
+/** A value that may wrap only after each match of `at` (a dot or an underscore), never mid-word. */
+function breakable(text: string, at: RegExp): ReactNode {
+  const parts = text.split(new RegExp(`(?<=${at.source})`));
+  return parts.map((part, i) => (i === 0 ? part : <Fragment key={i}><wbr />{part}</Fragment>));
+}
 
 export function PolicyView({ now: nowProp }: { now?: number }) {
   const t = useClearanceTokens();
@@ -145,16 +154,19 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
             {tools.length > 0 && (
               <div className={c.scroll}>
                 <table className={`${tk.table} ${c.fixed}`} data-testid="tool-rules-table">
-                  <colgroup><col style={{ width: '28%' }} /><col style={{ width: 68 }} /><col style={{ width: '25%' }} /><col style={{ width: '20%' }} /><col /></colgroup>
+                  <colgroup><col style={{ width: '30%' }} /><col style={{ width: 68 }} /><col style={{ width: '20%' }} /><col style={{ width: '17%' }} /><col /></colgroup>
                   <thead><tr><th className={tk.th}>Tool</th><th className={tk.th}>Tier</th><th className={tk.th}>What it does</th><th className={tk.th}>Needs</th><th className={tk.th}>Acts on</th></tr></thead>
                   <tbody>
                     {tools.map(tool => (
                       <tr key={tool.name}>
-                        <td className={tk.td}><Chip title={tool.name} className={c.wrapChip}>{tool.name}</Chip></td>
+                        <td className={tk.td}><Chip className={c.wrapChip}>{breakable(tool.name, /\./)}</Chip></td>
                         <td className={tk.td}><TierChip tier={tool.tier as any} /></td>
                         <td className={`${tk.td} ${c.wrap}`}>{tool.summary}{tool.propose_only && <div className={tk.meta}>propose only: a person merges</div>}</td>
-                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{tool.required_args.join(', ') || '—'}</span></td>
-                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{tool.target === 'none' ? '—' : tool.target}{tool.github_cost ? ` · ${tool.github_cost} GitHub calls` : ''}</span></td>
+                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{breakable(tool.required_args.join(', ') || '—', /_/)}</span></td>
+                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>
+                          {tool.target === 'none' ? '—' : <Tooltip title={tool.target}><span className={c.clip}>{tool.target}</span></Tooltip>}
+                          {tool.github_cost ? <span className={c.clip}>{tool.github_cost} GitHub calls</span> : null}
+                        </span></td>
                       </tr>
                     ))}
                   </tbody>
