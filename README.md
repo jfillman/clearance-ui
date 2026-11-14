@@ -39,7 +39,7 @@ make bundle         # out/clearance-ui-web-<version>.tar.gz (+ .sha256), the rel
 Consumed as a git-tag dependency, like Tower: the tagged commit holds the built `dist/`, nothing builds at install.
 
 ```json
-"@jfillman/clearance-ui": "jfillman/clearance-ui#v0.1.0"
+"@jfillman/clearance-ui": "jfillman/clearance-ui#v0.1.1"
 ```
 
 Peer dependencies: `react`, `react-dom`, `react-router-dom` and `@material-ui/core` (v4), at the versions the host
