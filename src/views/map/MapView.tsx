@@ -33,6 +33,8 @@ import {
   registryTiers,
   soleTarget,
   visibleAttention,
+  gateName,
+  withGateNames,
   WINDOWS,
   type MapFilters,
   type WindowId,
@@ -106,13 +108,13 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }: { items: Atten
             const groups = groupsOf(a, targets);
             let action: ReactNode = null;
             if (one) action = <TextLink onClick={() => onOpenTarget(one.id)} aria-label={`Open ${one.name}`}>Open →</TextLink>;
-            else if (groups.length > 0) action = <TextLink onClick={() => onShow(groups)} aria-label={`Show ${a.title} in the map`}>Show</TextLink>;
+            else if (groups.length > 0) action = <TextLink onClick={() => onShow(groups)} aria-label={`Show ${withGateNames(a.title, a.gate_type)} in the map`}>Show</TextLink>;
             return (
               <li key={`${a.kind}-${i}`} className={c.attnItem}>
                 <StatusChip tone={SEVERITY_TONE[a.severity]} title={a.severity === 'info' ? 'For information: nothing is failing' : a.severity}>{a.kind}</StatusChip>
                 <div>
-                  <p className={c.attnTitle}>{a.title}</p>
-                  <p className={c.attnDetail}>{a.detail}</p>
+                  <p className={c.attnTitle}>{withGateNames(a.title, a.gate_type)}</p>
+                  <p className={c.attnDetail}>{withGateNames(a.detail, a.gate_type)}</p>
                 </div>
                 {action}
               </li>
@@ -127,7 +129,7 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }: { items: Atten
 /** Lanes of the whole map: one row per gate type, or, scoped to a gate type, one row per target it guards. */
 export function lanesRows(map: MapResponse, scopeGate: string | undefined, onScope: (type: string | undefined) => void, targets: TargetNode[]): LaneRow[] {
   if (!scopeGate) {
-    return map.nodes.gate_types.map(g => ({ key: g.id, label: g.type, sub: `${g.instances} instances · ${g.targets} targets`, lanes: g.lanes, holding: g.holding, refused: g.refused, onSelect: () => onScope(g.type) }));
+    return map.nodes.gate_types.map(g => ({ key: g.id, label: gateName(g.type), sub: `${g.instances} instances · ${g.targets} targets`, lanes: g.lanes, holding: g.holding, refused: g.refused, onSelect: () => onScope(g.type) }));
   }
   return targets.flatMap(t =>
     t.gates
@@ -135,7 +137,7 @@ export function lanesRows(map: MapResponse, scopeGate: string | undefined, onSco
       .map(g => ({
         key: `${t.id}:${g.instance}`,
         label: t.name,
-        sub: `${scopeGate} · ${g.instance} · ${t.group}`,
+        sub: `${gateName(scopeGate)} · ${g.instance} · ${t.group}`,
         mode: g.mode,
         silent: g.silent,
         lanes: g.lanes,
@@ -233,7 +235,7 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
     body = (
       <Section
         framed
-        title={scopeGate ? `Lanes of ${scopeGate}` : 'Where changes are, by gate type'}
+        title={scopeGate ? `Lanes of ${gateName(scopeGate)}` : 'Where changes are, by gate type'}
         meta={<Chip>{scopeGate ? 'one gate type' : 'aggregate across every instance'}</Chip>}
         actions={scopeGate ? <TextLink onClick={() => setScopeGate(undefined)}>All gate types ✕</TextLink> : undefined}
       >

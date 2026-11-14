@@ -10,7 +10,7 @@ import '../../kit/Pager.esm.js';
 import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
-import { buildMatrix } from './model.esm.js';
+import { buildMatrix, gateName } from './model.esm.js';
 import { statusColor } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';
 
@@ -33,10 +33,10 @@ function MapMatrix({ map, targets, onOpenTarget }) {
         m.targets.map((x) => /* @__PURE__ */ jsx("th", { scope: "col", style: { padding: 0 }, children: /* @__PURE__ */ jsx(Tooltip, { title: `${x.name} \xB7 ${x.group}`, children: /* @__PURE__ */ jsx("span", { style: { display: "block", width: 16, height: 6, borderRadius: 2, backgroundColor: statusColor(t, x.status) }, "aria-label": `${x.name}, ${x.status}` }) }) }, x.id))
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: m.gateTypes.map((type) => /* @__PURE__ */ jsxs("tr", { children: [
-        /* @__PURE__ */ jsx("th", { scope: "row", className: c.matrixRowHead, children: type }),
+        /* @__PURE__ */ jsx("th", { scope: "row", className: c.matrixRowHead, children: gateName(type) }),
         m.targets.map((x) => {
           const mode = m.cell(type, x);
-          return /* @__PURE__ */ jsx(Tooltip, { title: `${type} on ${x.name}: ${WORDS[mode]}`, children: /* @__PURE__ */ jsx("td", { className: `${c.matrixCell} ${cls[mode]}`, role: "button", tabIndex: 0, "aria-label": `${type} on ${x.name}: ${WORDS[mode]}. Open detail`, onClick: () => onOpenTarget(x.id), onKeyDown: open(x.id), "data-mode": mode }) }, x.id);
+          return /* @__PURE__ */ jsx(Tooltip, { title: `${gateName(type)} on ${x.name}: ${WORDS[mode]}`, children: /* @__PURE__ */ jsx("td", { className: `${c.matrixCell} ${cls[mode]}`, role: "button", tabIndex: 0, "aria-label": `${gateName(type)} on ${x.name}: ${WORDS[mode]}. Open detail`, onClick: () => onOpenTarget(x.id), onKeyDown: open(x.id), "data-mode": mode }) }, x.id);
         })
       ] }, type)) })
     ] }) }),

@@ -1,11 +1,11 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Button, fontBody, StatusChip, TextLink, useClearanceTokens, type ClearanceTokens } from '../../kit';
-import { placePopover, type Box } from './layout';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import Popper from '@material-ui/core/Popper';
+import { Button, fontBody, StatusChip, TextLink, Tooltip, useClearanceTokens, type ClearanceTokens } from '../../kit';
 import { ROW_CAP, type EdgeView, type GateView, type GroupView, type ObserverView, type RowView, type Topology } from './model';
 import { CoverageMix, coverageColors, mixWords, statusColor, statusTone, statusWord } from './parts';
-import { POP_W, useMapStyles } from './styles';
+import { useMapStyles } from './styles';
 import { useHoverIntent } from './useHoverIntent';
-import { COVERAGE_ORDER } from './model';
+import { COVERAGE_ORDER, gateWords } from './model';
 
 // The topology diagram (boards C6 and C9), left to right: gate types (what guards, by type, with instance count and mode
 // mix), the Clearance core they decide through, the protected targets grouped by cluster or account (each with its
@@ -19,8 +19,11 @@ import { COVERAGE_ORDER } from './model';
 type Sel = { kind: 'gate' | 'group' | 'observer' | 'target'; id: string };
 interface Hovered {
   sel: Sel;
-  anchor: Box;
+  el: Element;
 }
+
+/** An edge end's id as a person reads it: a gate type by its name (the id is the API's), the rest as they are. */
+const nodeName = (id: string) => (id.startsWith('gate:') ? gateWords(id.slice(5)).name : id);
 
 const keys = (act: (el: Element) => void) => (e: KeyboardEvent<Element>) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -94,7 +97,7 @@ function hoverProps(sel: Sel, h: Handlers) {
 function GateNode({ v, t, h, onSel }: { v: GateView; t: ClearanceTokens; h: Handlers; onSel: (s: Sel, el: Element) => void }) {
   const c = useMapStyles();
   const n = v.node;
-  const label = `Gate type ${n.type}: ${n.instances} instances guarding ${n.targets} targets, ${mixWords(n.mix)}, ${fmt(n.decisions)} decisions, ${n.refused} refused, ${n.holding} holding, status ${statusWord(n.status)}`;
+  const label = `Gate type ${v.name}: ${n.instances} instances guarding ${n.targets} targets, ${mixWords(n.mix)}, ${fmt(n.decisions)} decisions, ${n.refused} refused, ${n.holding} holding, status ${statusWord(n.status)}`;
   const sel = { kind: 'gate', id: n.id } as const;
   const modes = modeWords(n.mix);
   return (
@@ -183,7 +186,7 @@ function EdgePath({ e, t }: { e: EdgeView; t: ClearanceTokens }) {
   const quiet = watch && e.edge.status === 'ok';
   const color = quiet ? t.textFaint : statusColor(t, e.edge.status);
   const state = quiet ? 'quiet' : statusWord(e.edge.status);
-  const label = `${watch ? 'Watches' : 'Guards'}: ${e.edge.from} to ${e.edge.to}, ${e.edge.targets} targets, ${fmt(e.edge.volume)} decisions, ${e.edge.refused} refused, ${e.edge.holding} holding, ${statusWord(e.edge.status)}`;
+  const label = `${watch ? 'Watches' : 'Guards'}: ${nodeName(e.edge.from)} to ${nodeName(e.edge.to)}, ${e.edge.targets} targets, ${fmt(e.edge.volume)} decisions, ${e.edge.refused} refused, ${e.edge.holding} holding, ${statusWord(e.edge.status)}`;
   return (
     <g opacity={e.dim ? 0.18 : 1} role="img" aria-label={label}>
       <title>{label}</title>
@@ -213,7 +216,7 @@ function ColumnHeads({ topo }: { topo: Topology }) {
   );
 }
 
-function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }: { sel: Sel; topo: Topology; anchor: Box; width: number; h: Handlers & { stay: () => void }; onOpen: (id: string) => void; onToggle: (g: string) => void }) {
+function Popover({ sel, topo, el, h, onOpen, onToggle }: { sel: Sel; topo: Topology; el: Element; h: Handlers & { stay: () => void }; onOpen: (id: string) => void; onToggle: (g: string) => void }) {
   const c = useMapStyles();
   let name = '';
   let aria = '';
@@ -225,12 +228,12 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }: { sel: Sel; 
     if (!v) return null;
     const n = v.node;
     name = v.name;
-    aria = n.type;
+    aria = v.name;
     status = n.status;
     body = (
       <>
         <dl className={c.popFacts}>
-          <dt>type</dt><dd>{n.type} · {v.kind}</dd>
+          <dt>enforced by</dt><dd>{v.kind}</dd>
           <dt>instances</dt><dd>{n.instances}</dd>
           <dt>modes</dt><dd>{mixWords(n.mix)}</dd>
           <dt>guards</dt><dd>{n.targets} targets</dd>
@@ -239,7 +242,7 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }: { sel: Sel; 
           <dt>exceptions</dt><dd>{n.exceptions}</dd>
           <dt>holding</dt><dd>{n.holding}</dd>
         </dl>
-        <CoverageMix coverage={n.coverage} label={`${n.type} coverage`} />
+        <CoverageMix coverage={n.coverage} label={`${v.name} coverage`} />
       </>
     );
   } else if (sel.kind === 'group') {
@@ -289,51 +292,60 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }: { sel: Sel; 
         {n.registry && <><dt>registry</dt><dd>{n.registry}</dd></>}
         <dt>verified</dt><dd>{n.verified_pct === null ? 'no coverage' : `${n.verified_pct}%`}</dd>
         <dt>holding</dt><dd>{n.holding}</dd>
-        <dt>gates</dt><dd>{n.gates.length === 0 ? 'none declared' : n.gates.map(g => `${g.type} (${g.silent ? 'silent' : g.mode})`).join(', ')}</dd>
+        <dt>gates</dt>
+        <dd className={c.popList}>
+          {n.gates.length === 0 ? 'none declared' : n.gates.map(g => {
+            const w = gateWords(g.type);
+            return (
+              <span key={g.instance} className={c.popGate}>
+                <span className={c.popLead}>{w.name} · {w.kind} · {g.silent ? 'silent' : g.mode} · </span>
+                <Tooltip title={g.instance}><span className={c.popInstance}>{g.instance}</span></Tooltip>
+              </span>
+            );
+          })}
+        </dd>
         <dt>observers</dt><dd>{n.observers.map(o => `${o.provider} ${o.state}`).join(', ') || 'none'}</dd>
       </dl>
     );
     foot = <TextLink onClick={() => onOpen(n.id)}>Open detail →</TextLink>;
   }
-  const at = placePopover(anchor, width, POP_W);
+  // A Popper (a portal on <body>), so the framed Section's overflow cannot clip it: beside the node, else the other side, else
+  // below it, always shifted to stay inside the viewport.
   return (
-    <div
-      className={c.popover}
-      style={{ left: at.left, top: Math.max(0, at.top) }}
-      role="dialog"
-      aria-label={`${aria} details`}
-      data-testid="map-popover"
-      data-side={at.side}
-      onMouseEnter={h.stay}
-      onMouseLeave={h.off}
+    <Popper
+      open
+      anchorEl={el}
+      placement="right-start"
+      style={{ zIndex: 1300 }}
+      modifiers={{ offset: { offset: '0, 10' }, flip: { enabled: true, behavior: ['right', 'left', 'bottom'] }, preventOverflow: { enabled: true, boundariesElement: 'viewport', padding: 8 } }}
     >
-      <div className={c.popHead}>
-        <h3 className={c.popName}>{name}</h3>
-        <StatusChip tone={statusTone(status)} dot>{statusWord(status)}</StatusChip>
+      <div
+        className={c.popover}
+        role="dialog"
+        aria-label={`${aria} details`}
+        data-testid="map-popover"
+        onMouseEnter={h.stay}
+        onMouseLeave={h.off}
+      >
+        <div className={c.popHead}>
+          <h3 className={c.popName}>{name}</h3>
+          <StatusChip tone={statusTone(status)} dot>{statusWord(status)}</StatusChip>
+        </div>
+        {body}
+        {foot}
       </div>
-      {body}
-      {foot}
-    </div>
+    </Popper>
   );
 }
 
 export function MapTopology({ topo, onToggleGroup, onOpenTarget }: { topo: Topology; onToggleGroup: (g: string) => void; onOpenTarget: (id: string) => void }) {
   const c = useMapStyles();
   const t = useClearanceTokens();
-  const canvas = useRef<HTMLDivElement>(null);
   const { hover, enter, leave, hideNow } = useHoverIntent<Hovered>();
   const [pinned, setPinned] = useState<Hovered>();
   const shown = hover ?? pinned;
-  // Where an element sits inside the diagram's box, in CSS pixels: what the popover is placed against.
-  const anchorOf = (el: Element): Box => {
-    const base = canvas.current?.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    const ox = base?.left ?? 0;
-    const oy = base?.top ?? 0;
-    return { left: r.left - ox, right: r.right - ox, top: r.top - oy, bottom: r.bottom - oy };
-  };
-  const handlers = { on: (sel: Sel, el: Element) => enter({ sel, anchor: anchorOf(el) }), off: leave, stay: () => hover && enter(hover) };
-  const pin = (sel: Sel, el: Element) => setPinned(p => (p && p.sel.kind === sel.kind && p.sel.id === sel.id ? undefined : { sel, anchor: anchorOf(el) }));
+  const handlers = { on: (sel: Sel, el: Element) => enter({ sel, el }), off: leave, stay: () => hover && enter(hover) };
+  const pin = (sel: Sel, el: Element) => setPinned(p => (p && p.sel.kind === sel.kind && p.sel.id === sel.id ? undefined : { sel, el }));
   const total = topo.groups.reduce((n, g) => n + g.targets.length, 0);
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -343,7 +355,7 @@ export function MapTopology({ topo, onToggleGroup, onOpenTarget }: { topo: Topol
         hideNow();
       }
     }}>
-      <div className={c.canvas} ref={canvas}>
+      <div className={c.canvas}>
         <div className={c.scroll}>
           <svg className={c.svg} style={{ maxWidth: Math.round(topo.width * 1.25) }} viewBox={`0 0 ${topo.width} ${topo.height}`} role="group" aria-label={`Coverage topology: ${topo.gates.length} gate types, ${total} targets in ${topo.groups.length} groups, ${topo.observers.length} observers`} fontFamily={fontBody}>
             <defs>
@@ -364,7 +376,7 @@ export function MapTopology({ topo, onToggleGroup, onOpenTarget }: { topo: Topol
             ))}
           </svg>
         </div>
-        {shown && <Popover sel={shown.sel} topo={topo} anchor={shown.anchor} width={canvas.current?.clientWidth ?? 900} h={handlers} onOpen={onOpenTarget} onToggle={onToggleGroup} />}
+        {shown && <Popover sel={shown.sel} topo={topo} el={shown.el} h={handlers} onOpen={onOpenTarget} onToggle={onToggleGroup} />}
         {pinned && !hover && (
           <div style={{ position: 'absolute', top: -6, right: 0 }}>
             <Button small onClick={() => setPinned(undefined)}>Close details</Button>

@@ -47,7 +47,7 @@ const norm = (s: string | undefined) => (s ?? '').toLowerCase();
 export function targetMatches(t: TargetNode, query: string): boolean {
   const q = norm(query).trim();
   if (!q) return true;
-  return [t.name, t.id, t.app, t.group, t.owner, t.env, t.kind, ...t.gates.flatMap(g => [g.type, g.instance])].some(v => norm(v).includes(q));
+  return [t.name, t.id, t.app, t.group, t.owner, t.env, t.kind, ...t.gates.flatMap(g => [g.type, gateName(g.type), gateWords(g.type).kind, g.instance])].some(v => norm(v).includes(q));
 }
 
 /** The registry tiers the declared targets name, for the filter pills (empty when fewer than two: nothing to choose). */
@@ -66,15 +66,27 @@ export interface Placed {
 }
 const place = (x: number, y: number, w: number, h: number): Placed => ({ x, y, w, h, cx: x + w / 2, cy: y + h / 2 });
 
-/** What a gate type is, in words a person recognises: the clearance's own name and what it guards. Unknown types show as they are. */
+/**
+ * What a gate type is, in words a person recognises. One convention for every type: name = "<what is gated> gate", kind =
+ * the system that enforces it. The type ids (`g-argo`, `g-tf`, ...) are the API's and never shown: every place the Map names
+ * a gate type goes through gateWords. Unknown types show as they are.
+ */
 const GATE_WORDS: Record<string, { name: string; kind: string }> = {
-  glidepath: { name: 'Glidepath clearance-gate', kind: 'PR check' },
-  'g-argo': { name: 'G-ARGO', kind: 'Argo CD sync' },
-  'g-tf': { name: 'G-TF', kind: 'Terraform plan' },
-  autopilot: { name: 'Autopilot tool gate', kind: 'runtime' },
-  github: { name: 'GitHub deployment protection', kind: 'GitHub App' },
+  glidepath: { name: 'Pull request gate', kind: 'Glidepath check' },
+  'g-argo': { name: 'Sync gate', kind: 'Argo CD' },
+  'g-tf': { name: 'Plan gate', kind: 'Terraform' },
+  autopilot: { name: 'Tool call gate', kind: 'Autopilot' },
+  github: { name: 'Deployment gate', kind: 'GitHub' },
 };
 export const gateWords = (type: string): { name: string; kind: string } => GATE_WORDS[type] ?? { name: type, kind: 'gate' };
+export const gateName = (type: string): string => gateWords(type).name;
+/** Text from the server that names a gate type by its id ("g-argo on hangar-prod"), with the id shown as the gate's name. */
+export const withGateNames = (text: string, type?: string): string => {
+  const words = type ? GATE_WORDS[type] : undefined;
+  if (!type || !words) return text;
+  const escaped = type.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, 'g'), words.name);
+};
 
 export interface GateView extends Placed {
   node: GateTypeNode;
@@ -267,7 +279,7 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
   // Gate types and observers: ordered by where their lines go (barycentre of the groups they touch), then stacked.
   const guardedTypes = new Set(targets.flatMap(t => t.gates.map(g => g.type)));
   const gateNodes = map.nodes.gate_types.filter(g => !filteringTargets || guardedTypes.has(g.type));
-  const gateHit = (g: GateTypeNode) => !q || norm(g.type).includes(norm(q)) || targets.some(t => hits(t) && t.gates.some(x => x.type === g.type));
+  const gateHit = (g: GateTypeNode) => !q || norm(g.type).includes(norm(q)) || norm(gateName(g.type)).includes(norm(q)) || targets.some(t => hits(t) && t.gates.some(x => x.type === g.type));
   const centreOf = (id: string, kind: MapEdge['kind']): number | undefined => {
     const ys = usable.filter(e => e.edge.kind === kind && e.edge.from === id).map(e => (rowById.get(e.edge.to) ?? groupById.get(e.owner.node.id)!).cy);
     return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : undefined;
@@ -413,7 +425,7 @@ export function visibleAttention(items: AttentionItem[], filters: MapFilters, ta
     if (reg && item.targets.length > 0 && !item.targets.some(id => reg.has(id))) return false;
     if (!q) return true;
     const names = targets.filter(t => item.targets.includes(t.id) || item.targets.includes(t.name));
-    return [item.title, item.detail, item.gate_type, item.instance, item.kind].some(v => norm(v).includes(norm(q))) || names.some(t => targetMatches(t, q));
+    return [item.title, item.detail, item.gate_type, item.gate_type ? gateName(item.gate_type) : undefined, item.instance, item.kind].some(v => norm(v).includes(norm(q))) || names.some(t => targetMatches(t, q));
   });
 }
 

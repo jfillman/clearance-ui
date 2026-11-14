@@ -16,7 +16,7 @@ import '../../kit/ExpandRow.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { MapMatrix } from './MapMatrix.esm.js';
 import { MapTopology, MapLegend } from './MapTopology.esm.js';
-import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, otherPartials, WINDOWS, soleTarget, groupsOf } from './model.esm.js';
+import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, otherPartials, gateName, WINDOWS, soleTarget, groupsOf, withGateNames } from './model.esm.js';
 import { useClock } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';
 
@@ -68,12 +68,12 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }) {
     const groups = groupsOf(a, targets);
     let action = null;
     if (one) action = /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpenTarget(one.id), "aria-label": `Open ${one.name}`, children: "Open \u2192" });
-    else if (groups.length > 0) action = /* @__PURE__ */ jsx(TextLink, { onClick: () => onShow(groups), "aria-label": `Show ${a.title} in the map`, children: "Show" });
+    else if (groups.length > 0) action = /* @__PURE__ */ jsx(TextLink, { onClick: () => onShow(groups), "aria-label": `Show ${withGateNames(a.title, a.gate_type)} in the map`, children: "Show" });
     return /* @__PURE__ */ jsxs("li", { className: c.attnItem, children: [
       /* @__PURE__ */ jsx(StatusChip, { tone: SEVERITY_TONE[a.severity], title: a.severity === "info" ? "For information: nothing is failing" : a.severity, children: a.kind }),
       /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx("p", { className: c.attnTitle, children: a.title }),
-        /* @__PURE__ */ jsx("p", { className: c.attnDetail, children: a.detail })
+        /* @__PURE__ */ jsx("p", { className: c.attnTitle, children: withGateNames(a.title, a.gate_type) }),
+        /* @__PURE__ */ jsx("p", { className: c.attnDetail, children: withGateNames(a.detail, a.gate_type) })
       ] }),
       action
     ] }, `${a.kind}-${i}`);
@@ -81,13 +81,13 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }) {
 }
 function lanesRows(map, scopeGate, onScope, targets) {
   if (!scopeGate) {
-    return map.nodes.gate_types.map((g) => ({ key: g.id, label: g.type, sub: `${g.instances} instances \xB7 ${g.targets} targets`, lanes: g.lanes, holding: g.holding, refused: g.refused, onSelect: () => onScope(g.type) }));
+    return map.nodes.gate_types.map((g) => ({ key: g.id, label: gateName(g.type), sub: `${g.instances} instances \xB7 ${g.targets} targets`, lanes: g.lanes, holding: g.holding, refused: g.refused, onSelect: () => onScope(g.type) }));
   }
   return targets.flatMap(
     (t) => t.gates.filter((g) => g.type === scopeGate).map((g) => ({
       key: `${t.id}:${g.instance}`,
       label: t.name,
-      sub: `${scopeGate} \xB7 ${g.instance} \xB7 ${t.group}`,
+      sub: `${gateName(scopeGate)} \xB7 ${g.instance} \xB7 ${t.group}`,
       mode: g.mode,
       silent: g.silent,
       lanes: g.lanes,
@@ -188,7 +188,7 @@ function MapView({ win, onWindow, onOpenTarget }) {
       Section,
       {
         framed: true,
-        title: scopeGate ? `Lanes of ${scopeGate}` : "Where changes are, by gate type",
+        title: scopeGate ? `Lanes of ${gateName(scopeGate)}` : "Where changes are, by gate type",
         meta: /* @__PURE__ */ jsx(Chip, { children: scopeGate ? "one gate type" : "aggregate across every instance" }),
         actions: scopeGate ? /* @__PURE__ */ jsx(TextLink, { onClick: () => setScopeGate(void 0), children: "All gate types \u2715" }) : void 0,
         children: [

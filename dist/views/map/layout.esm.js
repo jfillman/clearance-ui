@@ -84,11 +84,6 @@ function assignLanes(routes, x0, x1) {
   });
   return out;
 }
-function placePopover(anchor, canvasWidth, popWidth, gap = 10) {
-  if (anchor.right + gap + popWidth <= canvasWidth) return { left: anchor.right + gap, top: anchor.top, side: "right" };
-  if (anchor.left - gap - popWidth >= 0) return { left: anchor.left - gap - popWidth, top: anchor.top, side: "left" };
-  return { left: Math.max(0, Math.min(anchor.left, canvasWidth - popWidth)), top: anchor.bottom + gap, side: "below" };
-}
 
-export { assignLanes, fan, placePopover, roundedPath, segHitsRect, segments, simplify };
+export { assignLanes, fan, roundedPath, segHitsRect, segments, simplify };
 //# sourceMappingURL=layout.esm.js.map

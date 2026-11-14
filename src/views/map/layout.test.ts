@@ -1,4 +1,4 @@
-import { assignLanes, fan, placePopover, roundedPath, segHitsRect, segsCross, simplify } from './layout';
+import { assignLanes, fan, roundedPath, segHitsRect, segsCross, simplify } from './layout';
 
 describe('layout geometry', () => {
   it('fans attach points around the middle of a node edge, and squeezes them when the edge is short', () => {
@@ -57,18 +57,5 @@ describe('layout geometry', () => {
     const [a, b] = lanes;
     // a (higher) turns first only if its right run at y=50 clears b's vertical (30..70): it does not, so b's lane is the nearer to the source
     expect(b).toBeLessThan(a);
-  });
-
-  it('places a popover beside its node, never over it, and below it only when there is no room at either side', () => {
-    const anchor = { left: 100, top: 40, right: 300, bottom: 120 };
-    const right = placePopover(anchor, 1000, 272);
-    expect(right.side).toBe('right');
-    expect(right.left).toBeGreaterThanOrEqual(anchor.right);
-    const left = placePopover({ left: 700, top: 40, right: 950, bottom: 120 }, 1000, 272);
-    expect(left.side).toBe('left');
-    expect(left.left + 272).toBeLessThanOrEqual(700);
-    const below = placePopover({ left: 100, top: 40, right: 500, bottom: 120 }, 600, 272);
-    expect(below.side).toBe('below');
-    expect(below.top).toBeGreaterThanOrEqual(120);
   });
 });

@@ -5,7 +5,9 @@ import { fontBody, fontDisplay, fontMono, fontScale as s, tokensForTheme } from 
 // What the Map draws that the kit has no piece for: the diagram's nodes and flow, the lane rows, the matrix cells and the
 // coverage bar. Everything else (panels, chips, filters, tables, callouts) is the kit's. Colours are tokens only; the
 // flow animation runs only for people who have not asked for reduced motion.
-export const POP_W = 272;
+// Wide enough for one gate line ("Pull request gate · Glidepath check · enforce · app-backstage-cicd/pipeline-runner") on a
+// single row; the popover is capped to the viewport, not the diagram (it is a portal).
+export const POP_W = 780;
 export const useMapStyles = makeStyles<Theme>(theme => {
   const t = tokensForTheme(theme);
   return {
@@ -42,10 +44,9 @@ export const useMapStyles = makeStyles<Theme>(theme => {
       '@media (prefers-reduced-motion: no-preference)': { animation: '$mapFlow 1.6s linear infinite' },
     },
     popover: {
-      position: 'absolute',
-      zIndex: 3,
       width: POP_W,
-      maxWidth: 'calc(100% - 16px)',
+      maxWidth: 'calc(100vw - 24px)',
+      boxSizing: 'border-box',
       backgroundColor: t.panel,
       border: `1px solid ${t.line}`,
       borderRadius: 6,
@@ -59,7 +60,12 @@ export const useMapStyles = makeStyles<Theme>(theme => {
     },
     popHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     popName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: s.lg, margin: 0 },
-    popFacts: { display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: s.sm, '& dt': { color: t.textLo }, '& dd': { margin: 0, textAlign: 'right' } },
+    popFacts: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: s.sm, '& dt': { color: t.textLo }, '& dd': { margin: 0, textAlign: 'right', whiteSpace: 'nowrap', minWidth: 0 } },
+    popList: { display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' },
+    // One gate per line; only the instance name (the long part) truncates, with its full text in the title.
+    popGate: { display: 'flex', maxWidth: '100%', minWidth: 0, justifyContent: 'flex-end' },
+    popLead: { whiteSpace: 'pre', flex: 'none' },
+    popInstance: { overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
     legend: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 16px', padding: '8px 16px 12px', fontFamily: fontMono, fontSize: s.xs, color: t.textLo },
     legendItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
     legendDot: { display: 'inline-block', width: 9, height: 9, borderRadius: 2 },

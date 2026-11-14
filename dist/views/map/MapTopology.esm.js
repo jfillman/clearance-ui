@@ -1,21 +1,21 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import Popper from '@material-ui/core/Popper';
 import { useClearanceTokens, fontBody } from '../../kit/tokens.esm.js';
-import { Button, TextLink, StatusChip } from '../../kit/kit.esm.js';
+import { Button, TextLink, Tooltip, StatusChip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
-import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
-import { placePopover } from './layout.esm.js';
-import { ROW_CAP, COVERAGE_ORDER } from './model.esm.js';
+import { ROW_CAP, gateWords, COVERAGE_ORDER } from './model.esm.js';
 import { statusColor, coverageColors, statusWord, mixWords, CoverageMix, statusTone } from './parts.esm.js';
-import { useMapStyles, POP_W } from './styles.esm.js';
+import { useMapStyles } from './styles.esm.js';
 import { useHoverIntent } from './useHoverIntent.esm.js';
 
+const nodeName = (id) => id.startsWith("gate:") ? gateWords(id.slice(5)).name : id;
 const keys = (act) => (e) => {
   if (e.key === "Enter" || e.key === " ") {
     e.preventDefault();
@@ -70,7 +70,7 @@ function hoverProps(sel, h) {
 function GateNode({ v, t, h, onSel }) {
   const c = useMapStyles();
   const n = v.node;
-  const label = `Gate type ${n.type}: ${n.instances} instances guarding ${n.targets} targets, ${mixWords(n.mix)}, ${fmt(n.decisions)} decisions, ${n.refused} refused, ${n.holding} holding, status ${statusWord(n.status)}`;
+  const label = `Gate type ${v.name}: ${n.instances} instances guarding ${n.targets} targets, ${mixWords(n.mix)}, ${fmt(n.decisions)} decisions, ${n.refused} refused, ${n.holding} holding, status ${statusWord(n.status)}`;
   const sel = { kind: "gate", id: n.id };
   const modes = modeWords(n.mix);
   return /* @__PURE__ */ jsxs("g", { className: `${c.node} ${v.dim ? c.nodeDim : ""}`, role: "button", tabIndex: 0, "aria-label": label, ...hoverProps(sel, h), onClick: (e) => onSel(sel, e.currentTarget), onKeyDown: keys((el) => onSel(sel, el)), "data-testid": `gate-${n.type}`, children: [
@@ -172,7 +172,7 @@ function EdgePath({ e, t }) {
   const quiet = watch && e.edge.status === "ok";
   const color = quiet ? t.textFaint : statusColor(t, e.edge.status);
   const state = quiet ? "quiet" : statusWord(e.edge.status);
-  const label = `${watch ? "Watches" : "Guards"}: ${e.edge.from} to ${e.edge.to}, ${e.edge.targets} targets, ${fmt(e.edge.volume)} decisions, ${e.edge.refused} refused, ${e.edge.holding} holding, ${statusWord(e.edge.status)}`;
+  const label = `${watch ? "Watches" : "Guards"}: ${nodeName(e.edge.from)} to ${nodeName(e.edge.to)}, ${e.edge.targets} targets, ${fmt(e.edge.volume)} decisions, ${e.edge.refused} refused, ${e.edge.holding} holding, ${statusWord(e.edge.status)}`;
   return /* @__PURE__ */ jsxs("g", { opacity: e.dim ? 0.18 : 1, role: "img", "aria-label": label, children: [
     /* @__PURE__ */ jsx("title", { children: label }),
     /* @__PURE__ */ jsx("path", { className: c.edge, d: e.d, stroke: color, strokeWidth: e.width, strokeDasharray: watch ? "5 4" : void 0, opacity: watch ? 0.85 : 0.6, markerEnd: `url(#${arrowId(state)})` }),
@@ -194,7 +194,7 @@ function ColumnHeads({ topo }) {
     topo.columns.filter((col) => col.key !== "core").map((col) => /* @__PURE__ */ jsx("line", { x1: col.x, x2: col.x + col.w, y1: 35, y2: 35, stroke: t.lineSoft }, col.key))
   ] });
 }
-function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }) {
+function Popover({ sel, topo, el, h, onOpen, onToggle }) {
   const c = useMapStyles();
   let name = "";
   let aria = "";
@@ -206,16 +206,12 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }) {
     if (!v) return null;
     const n = v.node;
     name = v.name;
-    aria = n.type;
+    aria = v.name;
     status = n.status;
     body = /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("dl", { className: c.popFacts, children: [
-        /* @__PURE__ */ jsx("dt", { children: "type" }),
-        /* @__PURE__ */ jsxs("dd", { children: [
-          n.type,
-          " \xB7 ",
-          v.kind
-        ] }),
+        /* @__PURE__ */ jsx("dt", { children: "enforced by" }),
+        /* @__PURE__ */ jsx("dd", { children: v.kind }),
         /* @__PURE__ */ jsx("dt", { children: "instances" }),
         /* @__PURE__ */ jsx("dd", { children: n.instances }),
         /* @__PURE__ */ jsx("dt", { children: "modes" }),
@@ -234,7 +230,7 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }) {
         /* @__PURE__ */ jsx("dt", { children: "holding" }),
         /* @__PURE__ */ jsx("dd", { children: n.holding })
       ] }),
-      /* @__PURE__ */ jsx(CoverageMix, { coverage: n.coverage, label: `${n.type} coverage` })
+      /* @__PURE__ */ jsx(CoverageMix, { coverage: n.coverage, label: `${v.name} coverage` })
     ] });
   } else if (sel.kind === "group") {
     const v = topo.groups.find((g) => g.node.id === sel.id);
@@ -301,51 +297,63 @@ function Popover({ sel, topo, anchor, width, h, onOpen, onToggle }) {
       /* @__PURE__ */ jsx("dt", { children: "holding" }),
       /* @__PURE__ */ jsx("dd", { children: n.holding }),
       /* @__PURE__ */ jsx("dt", { children: "gates" }),
-      /* @__PURE__ */ jsx("dd", { children: n.gates.length === 0 ? "none declared" : n.gates.map((g) => `${g.type} (${g.silent ? "silent" : g.mode})`).join(", ") }),
+      /* @__PURE__ */ jsx("dd", { className: c.popList, children: n.gates.length === 0 ? "none declared" : n.gates.map((g) => {
+        const w = gateWords(g.type);
+        return /* @__PURE__ */ jsxs("span", { className: c.popGate, children: [
+          /* @__PURE__ */ jsxs("span", { className: c.popLead, children: [
+            w.name,
+            " \xB7 ",
+            w.kind,
+            " \xB7 ",
+            g.silent ? "silent" : g.mode,
+            " \xB7 "
+          ] }),
+          /* @__PURE__ */ jsx(Tooltip, { title: g.instance, children: /* @__PURE__ */ jsx("span", { className: c.popInstance, children: g.instance }) })
+        ] }, g.instance);
+      }) }),
       /* @__PURE__ */ jsx("dt", { children: "observers" }),
       /* @__PURE__ */ jsx("dd", { children: n.observers.map((o) => `${o.provider} ${o.state}`).join(", ") || "none" })
     ] });
     foot = /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpen(n.id), children: "Open detail \u2192" });
   }
-  const at = placePopover(anchor, width, POP_W);
-  return /* @__PURE__ */ jsxs(
-    "div",
+  return /* @__PURE__ */ jsx(
+    Popper,
     {
-      className: c.popover,
-      style: { left: at.left, top: Math.max(0, at.top) },
-      role: "dialog",
-      "aria-label": `${aria} details`,
-      "data-testid": "map-popover",
-      "data-side": at.side,
-      onMouseEnter: h.stay,
-      onMouseLeave: h.off,
-      children: [
-        /* @__PURE__ */ jsxs("div", { className: c.popHead, children: [
-          /* @__PURE__ */ jsx("h3", { className: c.popName, children: name }),
-          /* @__PURE__ */ jsx(StatusChip, { tone: statusTone(status), dot: true, children: statusWord(status) })
-        ] }),
-        body,
-        foot
-      ]
+      open: true,
+      anchorEl: el,
+      placement: "right-start",
+      style: { zIndex: 1300 },
+      modifiers: { offset: { offset: "0, 10" }, flip: { enabled: true, behavior: ["right", "left", "bottom"] }, preventOverflow: { enabled: true, boundariesElement: "viewport", padding: 8 } },
+      children: /* @__PURE__ */ jsxs(
+        "div",
+        {
+          className: c.popover,
+          role: "dialog",
+          "aria-label": `${aria} details`,
+          "data-testid": "map-popover",
+          onMouseEnter: h.stay,
+          onMouseLeave: h.off,
+          children: [
+            /* @__PURE__ */ jsxs("div", { className: c.popHead, children: [
+              /* @__PURE__ */ jsx("h3", { className: c.popName, children: name }),
+              /* @__PURE__ */ jsx(StatusChip, { tone: statusTone(status), dot: true, children: statusWord(status) })
+            ] }),
+            body,
+            foot
+          ]
+        }
+      )
     }
   );
 }
 function MapTopology({ topo, onToggleGroup, onOpenTarget }) {
   const c = useMapStyles();
   const t = useClearanceTokens();
-  const canvas = useRef(null);
   const { hover, enter, leave, hideNow } = useHoverIntent();
   const [pinned, setPinned] = useState();
   const shown = hover ?? pinned;
-  const anchorOf = (el) => {
-    const base = canvas.current?.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    const ox = base?.left ?? 0;
-    const oy = base?.top ?? 0;
-    return { left: r.left - ox, right: r.right - ox, top: r.top - oy, bottom: r.bottom - oy };
-  };
-  const handlers = { on: (sel, el) => enter({ sel, anchor: anchorOf(el) }), off: leave, stay: () => hover && enter(hover) };
-  const pin = (sel, el) => setPinned((p) => p && p.sel.kind === sel.kind && p.sel.id === sel.id ? void 0 : { sel, anchor: anchorOf(el) });
+  const handlers = { on: (sel, el) => enter({ sel, el }), off: leave, stay: () => hover && enter(hover) };
+  const pin = (sel, el) => setPinned((p) => p && p.sel.kind === sel.kind && p.sel.id === sel.id ? void 0 : { sel, el });
   const total = topo.groups.reduce((n, g) => n + g.targets.length, 0);
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -354,7 +362,7 @@ function MapTopology({ topo, onToggleGroup, onOpenTarget }) {
         setPinned(void 0);
         hideNow();
       }
-    }, children: /* @__PURE__ */ jsxs("div", { className: c.canvas, ref: canvas, children: [
+    }, children: /* @__PURE__ */ jsxs("div", { className: c.canvas, children: [
       /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("svg", { className: c.svg, style: { maxWidth: Math.round(topo.width * 1.25) }, viewBox: `0 0 ${topo.width} ${topo.height}`, role: "group", "aria-label": `Coverage topology: ${topo.gates.length} gate types, ${total} targets in ${topo.groups.length} groups, ${topo.observers.length} observers`, fontFamily: fontBody, children: [
         /* @__PURE__ */ jsx("defs", { children: [["ok", t.good], ["attention", t.amber], ["down", t.bad], ["quiet", t.textFaint]].map(([k, fill]) => /* @__PURE__ */ jsx("marker", { id: arrowId(k), orient: "auto", markerUnits: "userSpaceOnUse", markerWidth: 9, markerHeight: 9, refX: 8, refY: 4.5, children: /* @__PURE__ */ jsx("path", { d: "M0 0 L9 4.5 L0 9 Z", fill }) }, k)) }),
         /* @__PURE__ */ jsx(ColumnHeads, { topo }),
@@ -365,7 +373,7 @@ function MapTopology({ topo, onToggleGroup, onOpenTarget }) {
         topo.observers.map((v) => /* @__PURE__ */ jsx(ObserverNodeView, { v, t, h: handlers, onSel: pin }, v.node.id)),
         topo.edges.filter((e) => e.label && !e.dim).map((e) => /* @__PURE__ */ jsx("text", { className: c.edgeLabel, x: e.label.x - e.label.w / 2, y: e.label.y, textAnchor: "start", style: { fill: statusColor(t, e.edge.status) }, "aria-hidden": "true", children: e.label.text }, `l-${e.id}`))
       ] }) }),
-      shown && /* @__PURE__ */ jsx(Popover, { sel: shown.sel, topo, anchor: shown.anchor, width: canvas.current?.clientWidth ?? 900, h: handlers, onOpen: onOpenTarget, onToggle: onToggleGroup }),
+      shown && /* @__PURE__ */ jsx(Popover, { sel: shown.sel, topo, el: shown.el, h: handlers, onOpen: onOpenTarget, onToggle: onToggleGroup }),
       pinned && !hover && /* @__PURE__ */ jsx("div", { style: { position: "absolute", top: -6, right: 0 }, children: /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setPinned(void 0), children: "Close details" }) })
     ] }) })
   );

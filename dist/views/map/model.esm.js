@@ -21,7 +21,7 @@ const norm = (s) => (s ?? "").toLowerCase();
 function targetMatches(t, query) {
   const q = norm(query).trim();
   if (!q) return true;
-  return [t.name, t.id, t.app, t.group, t.owner, t.env, t.kind, ...t.gates.flatMap((g) => [g.type, g.instance])].some((v) => norm(v).includes(q));
+  return [t.name, t.id, t.app, t.group, t.owner, t.env, t.kind, ...t.gates.flatMap((g) => [g.type, gateName(g.type), gateWords(g.type).kind, g.instance])].some((v) => norm(v).includes(q));
 }
 function registryTiers(targets) {
   const tiers = [...new Set(targets.map((t) => t.registry).filter((r) => !!r))].sort();
@@ -29,13 +29,20 @@ function registryTiers(targets) {
 }
 const place = (x, y, w, h) => ({ x, y, w, h, cx: x + w / 2, cy: y + h / 2 });
 const GATE_WORDS = {
-  glidepath: { name: "Glidepath clearance-gate", kind: "PR check" },
-  "g-argo": { name: "G-ARGO", kind: "Argo CD sync" },
-  "g-tf": { name: "G-TF", kind: "Terraform plan" },
-  autopilot: { name: "Autopilot tool gate", kind: "runtime" },
-  github: { name: "GitHub deployment protection", kind: "GitHub App" }
+  glidepath: { name: "Pull request gate", kind: "Glidepath check" },
+  "g-argo": { name: "Sync gate", kind: "Argo CD" },
+  "g-tf": { name: "Plan gate", kind: "Terraform" },
+  autopilot: { name: "Tool call gate", kind: "Autopilot" },
+  github: { name: "Deployment gate", kind: "GitHub" }
 };
 const gateWords = (type) => GATE_WORDS[type] ?? { name: type, kind: "gate" };
+const gateName = (type) => gateWords(type).name;
+const withGateNames = (text, type) => {
+  const words = type ? GATE_WORDS[type] : void 0;
+  if (!type || !words) return text;
+  const escaped = type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, "g"), words.name);
+};
 const edgeWidth = (volume) => Math.min(MAX_STROKE, 1.5 + 0.4 * Math.log2(1 + Math.max(0, volume)));
 const matchCount = (q, groupHit, mine, hits) => {
   if (!q) return 0;
@@ -116,7 +123,7 @@ function buildTopology(map, filters, expanded) {
   const rowById = new Map(groups.flatMap((g) => g.rows.map((r) => [`target:${r.target.id}`, r])));
   const guardedTypes = new Set(targets.flatMap((t) => t.gates.map((g) => g.type)));
   const gateNodes = map.nodes.gate_types.filter((g) => !filteringTargets || guardedTypes.has(g.type));
-  const gateHit = (g) => !q || norm(g.type).includes(norm(q)) || targets.some((t) => hits(t) && t.gates.some((x) => x.type === g.type));
+  const gateHit = (g) => !q || norm(g.type).includes(norm(q)) || norm(gateName(g.type)).includes(norm(q)) || targets.some((t) => hits(t) && t.gates.some((x) => x.type === g.type));
   const centreOf = (id, kind) => {
     const ys = usable.filter((e) => e.edge.kind === kind && e.edge.from === id).map((e) => (rowById.get(e.edge.to) ?? groupById.get(e.owner.node.id)).cy);
     return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : void 0;
@@ -245,7 +252,7 @@ function visibleAttention(items, filters, targets) {
     if (reg && item.targets.length > 0 && !item.targets.some((id) => reg.has(id))) return false;
     if (!q) return true;
     const names = targets.filter((t) => item.targets.includes(t.id) || item.targets.includes(t.name));
-    return [item.title, item.detail, item.gate_type, item.instance, item.kind].some((v) => norm(v).includes(norm(q))) || names.some((t) => targetMatches(t, q));
+    return [item.title, item.detail, item.gate_type, item.gate_type ? gateName(item.gate_type) : void 0, item.instance, item.kind].some((v) => norm(v).includes(norm(q))) || names.some((t) => targetMatches(t, q));
   });
 }
 function groupsOf(item, targets) {
@@ -275,5 +282,5 @@ const COVERAGE_ORDER = ["authorized-and-verified", "observed-not-attributed", "o
 const lanePartials = (p) => p.filter((n) => n.field.startsWith("lanes"));
 const otherPartials = (p) => p.filter((n) => !n.field.startsWith("lanes"));
 
-export { COVERAGE_ORDER, EDGE_PITCH, MATRIX_THRESHOLD, NO_FILTERS, ROW_CAP, WINDOWS, buildMatrix, buildTopology, edgeWidth, gateWords, groupsOf, lanePartials, otherPartials, registryEmpty, registryTiers, soleTarget, statusRank, targetMatches, visibleAttention };
+export { COVERAGE_ORDER, EDGE_PITCH, MATRIX_THRESHOLD, NO_FILTERS, ROW_CAP, WINDOWS, buildMatrix, buildTopology, edgeWidth, gateName, gateWords, groupsOf, lanePartials, otherPartials, registryEmpty, registryTiers, soleTarget, statusRank, targetMatches, visibleAttention, withGateNames };
 //# sourceMappingURL=model.esm.js.map
