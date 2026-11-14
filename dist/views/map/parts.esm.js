@@ -72,5 +72,5 @@ function CoverageMix({ coverage, label = "Coverage mix" }) {
   ] });
 }
 
-export { CoverageMix, MODE_WHY, ModeChip, mixWords, modeTone, statusColor, statusTone, statusWord, useClock };
+export { CoverageMix, MODE_WHY, ModeChip, coverageColors, mixWords, modeTone, statusColor, statusTone, statusWord, useClock };
 //# sourceMappingURL=parts.esm.js.map

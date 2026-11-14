@@ -43,7 +43,7 @@ export const mixWords = (m: GateMix): string => `${m.enforce} enforce · ${m.fla
 
 export const statusColor = (t: ClearanceTokens, s: MapStatus | string): string => ({ down: t.bad, attention: t.amber }[s as 'down' | 'attention'] ?? t.good);
 
-const coverageColors = (t: ClearanceTokens): Record<string, string> => ({
+export const coverageColors = (t: ClearanceTokens): Record<string, string> => ({
   'authorized-and-verified': t.good,
   'observed-not-attributed': t.amber,
   'out-of-band-detected': t.bad,
