@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { BudgetBars, DecisionChip, StateChip, TierChip, VerifiedClaimed } from './components';
+import { BudgetBars, SessionBudgets, DecisionChip, StateChip, TierChip, VerifiedClaimed } from './components';
 import { FlightLog, summarize } from './FlightLog';
 import { compact, relativeTime, shortPrincipal } from './format';
 import type { EvidenceRecord } from './types';
@@ -81,4 +81,37 @@ it('verified versus claimed marks each field', () => {
   expect(screen.getAllByText('verified').length).toBeGreaterThanOrEqual(3);
   expect(screen.getByText('claimed')).toBeTruthy();
   expect(screen.getByText('recorded-not-checkpointed')).toBeTruthy();
+});
+
+describe('SessionBudgets run time', () => {
+  const limits = { tier_ceiling: 'T1', ttl_minutes: 20, tool_calls: 60, github_calls: 40, open_prs: 1, model_tokens: 400000, children: 0, tools: [], models: [], network: 'clearance', compute: 'small' };
+  const base = { id: 's', principal: 'p', agent: 'triage', limits, created_at: '2026-11-15T21:00:01Z', expires_at: '2026-11-15T21:20:01Z', parent_id: null, depth: 0, task_id: 't', used: {}, reserved: {}, children: [], tripped: false, trip_reason: null, denials: 0, closed: false, run: null, state: 'active' } as any;
+  const runTime = () => screen.getByRole('meter', { name: 'Run time' }).textContent;
+
+  it('a finished run shows how long it ran, not the TTL, however long ago it ended', () => {
+    const session = { ...base, closed: true, state: 'closed', outcome: { status: 'done', finished_at: '2026-11-15T21:00:43Z', via: 'runtime', result: null } };
+    render(<SessionBudgets session={session} now={Date.parse('2026-11-16T00:00:00Z')} />);
+    expect(runTime()).toContain('42 s of 20 min');
+  });
+
+  it('a live session counts to now', () => {
+    render(<SessionBudgets session={base} now={Date.parse('2026-11-15T21:05:01Z')} />);
+    expect(runTime()).toContain('5 min of 20 min');
+  });
+
+  it('a run that hit its deadline shows the full TTL', () => {
+    const session = { ...base, closed: true, state: 'closed', outcome: { status: 'expired', finished_at: '2026-11-15T21:20:01Z', via: 'deadline', result: null } };
+    render(<SessionBudgets session={session} now={Date.parse('2026-11-16T00:00:00Z')} />);
+    expect(runTime()).toContain('20 min of 20 min');
+  });
+
+  it('an expired session with no outcome shows the full TTL', () => {
+    render(<SessionBudgets session={{ ...base, state: 'expired' }} now={Date.parse('2026-11-16T00:00:00Z')} />);
+    expect(runTime()).toContain('20 min of 20 min');
+  });
+
+  it('a closed session with no end time shows "ended", not an invented duration', () => {
+    render(<SessionBudgets session={{ ...base, closed: true, state: 'closed' }} now={Date.parse('2026-11-15T21:10:00Z')} />);
+    expect(runTime()).toContain('ended (limit 20 min)');
+  });
 });

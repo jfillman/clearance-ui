@@ -53,7 +53,7 @@ function StateChip({ state, tripped, reason, outcome }) {
   if (state === "closed") return /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "closed" });
   return /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", title: "the session reached its time limit", children: "expired" });
 }
-function BudgetBar({ label, used, limit, format = String }) {
+function BudgetBar({ label, used, limit, format = String, valueText }) {
   const t = useClearanceTokens();
   const c = useStyles();
   const r = ratio(used, limit);
@@ -64,15 +64,23 @@ function BudgetBar({ label, used, limit, format = String }) {
   return /* @__PURE__ */ jsxs("div", { className: c.bar, role: "meter", "aria-label": label, "aria-valuemin": 0, "aria-valuemax": limit ?? 0, "aria-valuenow": u, children: [
     /* @__PURE__ */ jsx("span", { className: c.barLabel, children: label }),
     /* @__PURE__ */ jsx("div", { className: c.track, children: /* @__PURE__ */ jsx("div", { className: c.fill, style: { width: `${Math.round(r * 100)}%`, background: color } }) }),
-    /* @__PURE__ */ jsx("span", { className: c.barValue, children: limit ? `${format(u)} of ${format(limit)}` : format(u) })
+    /* @__PURE__ */ jsx("span", { className: c.barValue, children: valueText ?? (limit ? `${format(u)} of ${format(limit)}` : format(u)) })
   ] });
 }
 const minutesBetween = (a, b) => Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 6e4);
-function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now() }) {
+function formatMinutes(n) {
+  const secs = Math.round(n * 60);
+  if (secs < 60) return `${secs} s`;
+  if (secs < 600 && secs % 60 !== 0) return `${Math.floor(secs / 60)} min ${secs % 60} s`;
+  return `${Math.round(secs / 60)} min`;
+}
+function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now(), endedAt, ended }) {
   const c = useStyles();
-  const elapsed = createdAt ? minutesBetween(createdAt, new Date(Math.min(now, expiresAt ? new Date(expiresAt).getTime() : now)).toISOString()) : void 0;
+  const endMs = endedAt ? new Date(endedAt).getTime() : now;
+  const elapsed = createdAt ? minutesBetween(createdAt, new Date(Math.min(endMs, expiresAt ? new Date(expiresAt).getTime() : endMs)).toISOString()) : void 0;
+  const unknownEnd = !!ended && !endedAt;
   return /* @__PURE__ */ jsxs("div", { className: c.bars, children: [
-    createdAt && /* @__PURE__ */ jsx(BudgetBar, { label: "Run time", used: Math.round(elapsed ?? 0), limit: limits.ttl_minutes, format: (n) => `${n} min` }),
+    createdAt && /* @__PURE__ */ jsx(BudgetBar, { label: "Run time", used: unknownEnd ? 0 : elapsed ?? 0, limit: limits.ttl_minutes, format: formatMinutes, valueText: unknownEnd ? `ended (limit ${formatMinutes(limits.ttl_minutes)})` : void 0 }),
     /* @__PURE__ */ jsx(BudgetBar, { label: "Tool calls", used: used.tool_calls, limit: limits.tool_calls }),
     /* @__PURE__ */ jsx(BudgetBar, { label: "GitHub calls", used: used.github_calls, limit: limits.github_calls }),
     /* @__PURE__ */ jsx(BudgetBar, { label: "Open PRs", used: used.open_prs, limit: limits.open_prs }),
@@ -80,8 +88,12 @@ function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now() }) {
     /* @__PURE__ */ jsx(BudgetBar, { label: "Child runs", used: used.children, limit: limits.children })
   ] });
 }
-function SessionBudgets({ session, now }) {
-  return /* @__PURE__ */ jsx(BudgetBars, { used: session.used, limits: session.limits, createdAt: session.created_at, expiresAt: session.expires_at, now });
+function SessionBudgets({ session, now = Date.now() }) {
+  const finished = session.outcome?.finished_at;
+  const pastDeadline = now >= new Date(session.expires_at).getTime();
+  const ended = !!finished || session.closed && !pastDeadline;
+  const endedAt = finished ?? (session.closed && pastDeadline ? session.expires_at : void 0);
+  return /* @__PURE__ */ jsx(BudgetBars, { used: session.used, limits: session.limits, createdAt: session.created_at, expiresAt: session.expires_at, now, endedAt, ended });
 }
 const FIELD_ORDER = ["principal", "agent", "session", "task_id", "tool", "tier", "decision", "rule", "target", "app", "result", "args_sha256", "effect"];
 function VerifiedClaimed({ record }) {
@@ -115,5 +127,5 @@ function FieldRow({ name, value, mark }) {
   ] });
 }
 
-export { BudgetBar, BudgetBars, DecisionChip, KindChip, SessionBudgets, StateChip, TierChip, VerifiedClaimed, outcomeLabel, tierTone };
+export { BudgetBar, BudgetBars, DecisionChip, KindChip, SessionBudgets, StateChip, TierChip, VerifiedClaimed, formatMinutes, outcomeLabel, tierTone };
 //# sourceMappingURL=components.esm.js.map

@@ -1010,21 +1010,34 @@ declare function StateChip({ state, tripped, reason, outcome }: {
     reason?: string | null;
     outcome?: SessionOutcome | null;
 }): react.JSX.Element;
-declare function BudgetBar({ label, used, limit, format }: {
+declare function BudgetBar({ label, used, limit, format, valueText }: {
     label: string;
     used: number | undefined;
     limit: number | undefined;
     format?: (n: number) => string;
+    valueText?: string;
 }): react.JSX.Element;
-/** Every budget a session has, used against its limits, as bars. Time is elapsed against the session's TTL. */
-declare function BudgetBars({ used, limits, createdAt, expiresAt, now }: {
+/** Minutes as the bar shows them: seconds under a minute, minutes and seconds under ten, whole minutes after. */
+declare function formatMinutes(n: number): string;
+/**
+ * Every budget a session has, used against its limits, as bars. Time is elapsed against the session's TTL: up to `now`
+ * while the session is live, up to `endedAt` once it has ended (`ended` with no `endedAt` means the end time is unknown,
+ * so the bar shows the limit and no value rather than a made-up one). Never past `expiresAt`.
+ */
+declare function BudgetBars({ used, limits, createdAt, expiresAt, now, endedAt, ended }: {
     used: Record<string, number>;
     limits: SessionLimits;
     createdAt?: string;
     expiresAt?: string;
     now?: number;
+    endedAt?: string;
+    ended?: boolean;
 }): react.JSX.Element;
-/** The budgets a Session carries, as BudgetBars. */
+/**
+ * The budgets a Session carries, as BudgetBars. A live session's run time counts to `now`; an ended one counts to
+ * outcome.finished_at (a session with no outcome that is past its deadline ran to expires_at, so the full TTL; a closed
+ * one with no outcome has no end time to show).
+ */
 declare function SessionBudgets({ session, now }: {
     session: Session;
     now?: number;
@@ -1392,5 +1405,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, healthTone, isWorkload, outcomeLabel, pageSlice, preventFocusScroll, ratio, readDeniedText, relativeTime, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isWorkload, outcomeLabel, pageSlice, preventFocusScroll, ratio, readDeniedText, relativeTime, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
 export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageHealth, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };
