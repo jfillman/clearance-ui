@@ -17,7 +17,7 @@ import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 
 const WEEK_MS = 7 * 864e5;
 const useStyles = makeStyles(() => ({
-  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits below.
+  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits above the tables.
   row: { display: "flex", flexDirection: "column", gap: 16, alignItems: "stretch" },
   scroll: { overflowX: "auto" },
   // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
