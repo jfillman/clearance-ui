@@ -17,21 +17,24 @@ import { ExpandRow } from '../../kit/ExpandRow.esm.js';
 
 const WEEK_MS = 7 * 864e5;
 const useStyles = makeStyles(() => ({
-  row: { display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" },
+  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits below.
+  row: { display: "flex", flexDirection: "column", gap: 16, alignItems: "stretch" },
   scroll: { overflowX: "auto" },
   // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
   // own column instead of widening the table past the panel (the holder above is only a fallback for very narrow panels).
   fixed: { tableLayout: "fixed" },
   wrap: { overflowWrap: "break-word", minWidth: 0 },
-  // One line with an ellipsis (the full value is the Tooltip), for a value with no place to break, such as a target URL.
-  clip: { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  // A value with no natural break (a target URL, an argument name) wraps wherever it must rather than being cut off; the title keeps the whole value.
+  anywhere: { display: "block", overflowWrap: "anywhere" },
   // Chip is nowrap by default; a tool name wraps, but only after a dot or underscore (see breakable); doubled class beats the chip's own.
   wrapChip: { "&&": { whiteSpace: "normal", overflowWrap: "break-word", lineHeight: 1.35, textAlign: "left", maxWidth: "100%" } },
-  pad: { padding: "12px 18px", display: "flex", flexDirection: "column", gap: 10 },
+  // The dry-run fields sit in a row where there is room and stack when there is not; everything else spans the form.
+  pad: { padding: "12px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, alignItems: "start" },
+  full: { gridColumn: "1 / -1" },
   path: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   verdict: { display: "flex", flexDirection: "column", gap: 6 },
   ruleDetail: { display: "flex", flexDirection: "column", gap: 6, padding: "10px 18px" },
-  run: { alignSelf: "flex-start" }
+  run: { justifySelf: "start" }
 }));
 function breakable(text, at) {
   const parts = text.split(new RegExp(`(?<=${at.source})`));
@@ -67,7 +70,7 @@ function PolicyView({ now: nowProp }) {
     ) }),
     policy.error && !policy.data && /* @__PURE__ */ jsx("div", { style: { marginBottom: 12 }, children: /* @__PURE__ */ jsx(TabError, { error: policy.error, what: "the policy", onRetry: policy.refresh }) }),
     /* @__PURE__ */ jsxs("div", { className: c.row, children: [
-      sub === "rules" ? /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Deny rules", title: "Deny rules, in evaluation order", meta: /* @__PURE__ */ jsx(Count, { children: "CEL \xB7 first match denies \xB7 an expression that fails to evaluate denies (R000)" }), count: `hits, 7 days${hits.data ? "" : " \u2026"}`, style: { flex: "1.5 1 600px" }, children: [
+      sub === "rules" ? /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Deny rules", title: "Deny rules, in evaluation order", meta: /* @__PURE__ */ jsx(Count, { children: "CEL \xB7 first match denies \xB7 an expression that fails to evaluate denies (R000)" }), count: `hits, 7 days${hits.data ? "" : " \u2026"}`, children: [
         policy.loading && !policy.data && /* @__PURE__ */ jsx(PanelSkeleton, { rows: 4, label: "Loading\u2026" }),
         rules.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
           /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
@@ -100,13 +103,13 @@ function PolicyView({ now: nowProp }) {
             ] }, r.id);
           }) })
         ] }) })
-      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: `${tk.table} ${c.fixed}`, "data-testid": "tool-rules-table", children: [
+      ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: `${tk.table} ${c.fixed}`, "data-testid": "tool-rules-table", children: [
         /* @__PURE__ */ jsxs("colgroup", { children: [
-          /* @__PURE__ */ jsx("col", { style: { width: "30%" } }),
+          /* @__PURE__ */ jsx("col", { style: { width: "27%" } }),
           /* @__PURE__ */ jsx("col", { style: { width: 68 } }),
-          /* @__PURE__ */ jsx("col", { style: { width: "20%" } }),
-          /* @__PURE__ */ jsx("col", { style: { width: "17%" } }),
-          /* @__PURE__ */ jsx("col", {})
+          /* @__PURE__ */ jsx("col", {}),
+          /* @__PURE__ */ jsx("col", { style: { width: "15%" } }),
+          /* @__PURE__ */ jsx("col", { style: { width: "18%" } })
         ] }),
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tool" }),
@@ -122,10 +125,10 @@ function PolicyView({ now: nowProp }) {
             tool.summary,
             tool.propose_only && /* @__PURE__ */ jsx("div", { className: tk.meta, children: "propose only: a person merges" })
           ] }),
-          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: breakable(tool.required_args.join(", ") || "\u2014", /_/) }) }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: tool.required_args.length ? tool.required_args.map((a) => /* @__PURE__ */ jsx(Tooltip, { title: a, children: /* @__PURE__ */ jsx("span", { className: c.anywhere, children: a }) }, a)) : "\u2014" }) }),
           /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
-            tool.target === "none" ? "\u2014" : /* @__PURE__ */ jsx(Tooltip, { title: tool.target, children: /* @__PURE__ */ jsx("span", { className: c.clip, children: tool.target }) }),
-            tool.github_cost ? /* @__PURE__ */ jsxs("span", { className: c.clip, children: [
+            tool.target === "none" ? "\u2014" : /* @__PURE__ */ jsx(Tooltip, { title: tool.target, children: /* @__PURE__ */ jsx("span", { className: c.anywhere, children: tool.target }) }),
+            tool.github_cost ? /* @__PURE__ */ jsxs("span", { className: c.anywhere, children: [
               tool.github_cost,
               " GitHub calls"
             ] }) : null
@@ -167,7 +170,7 @@ function Explainer({ rules, tools }) {
       setBusy(false);
     }
   };
-  return /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Would this be allowed?", title: "Would this be allowed?", meta: /* @__PURE__ */ jsx(Count, { children: "dry-runs the real policy on a fresh session \xB7 records nothing" }), style: { flex: "1 1 360px" }, children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
+  return /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Would this be allowed?", title: "Would this be allowed?", meta: /* @__PURE__ */ jsx(Count, { children: "dry-runs the real policy on a fresh session \xB7 records nothing" }), children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
     /* @__PURE__ */ jsx(Field, { label: "Agent", children: ({ className }) => /* @__PURE__ */ jsxs("select", { className, value: agent, onChange: (e) => setAgent(e.target.value), children: [
       /* @__PURE__ */ jsx("option", { value: "", children: "choose an agent" }),
       (agents.data?.items ?? []).map((a) => /* @__PURE__ */ jsx("option", { value: a.name, children: a.name }, a.name))
@@ -181,10 +184,10 @@ function Explainer({ rules, tools }) {
       ] }, x.name))
     ] }) }),
     /* @__PURE__ */ jsx(Field, { label: "Args (JSON)", children: ({ className }) => /* @__PURE__ */ jsx("textarea", { className: `${className} ${inp.textarea}`, value: args, onChange: (e) => setArgs(e.target.value), spellCheck: false }) }),
-    argsError && /* @__PURE__ */ jsx("span", { className: inp.problem, children: argsError }),
-    /* @__PURE__ */ jsx(Button, { variant: "primary", className: c.run, onClick: run, disabled: busy || !agent || !tool || !!argsError, children: busy ? "Running\u2026" : "Run dry run" }),
-    error && /* @__PURE__ */ jsx("span", { className: inp.problem, children: error }),
-    out && /* @__PURE__ */ jsxs("div", { className: c.verdict, "aria-live": "polite", children: [
+    argsError && /* @__PURE__ */ jsx("span", { className: `${inp.problem} ${c.full}`, children: argsError }),
+    /* @__PURE__ */ jsx(Button, { variant: "primary", className: `${c.run} ${c.full}`, onClick: run, disabled: busy || !agent || !tool || !!argsError, children: busy ? "Running\u2026" : "Run dry run" }),
+    error && /* @__PURE__ */ jsx("span", { className: `${inp.problem} ${c.full}`, children: error }),
+    out && /* @__PURE__ */ jsxs("div", { className: `${c.verdict} ${c.full}`, "aria-live": "polite", children: [
       /* @__PURE__ */ jsxs("div", { className: c.path, children: [
         /* @__PURE__ */ jsx(DecisionChip, { decision: out.decision.allow ? "allow" : "deny", rule: out.decision.rule }),
         out.decision.name && /* @__PURE__ */ jsx(Count, { children: out.decision.name }),

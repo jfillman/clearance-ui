@@ -27,5 +27,24 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
   // The long name is in a chip that is allowed to wrap,.
   const chip = screen.getByText(longName);
   expect(chip.className).toMatch(/wrapChip/);
-  expect(table.querySelectorAll('col').length).toBe(5);
+  // The tab's panels stack (the table takes the full tab width, the dry-run form sits below), they do not sit side by side.
+  const row = table.closest('[class*="row"]')!;
+  expect(css).toMatch(new RegExp(`\\.${Array.from(row.classList).find(k => k.includes('row'))}\\s*\\{[^}]*flex-direction: column`));
+  expect(screen.getByRole('region', { name: 'Would this be allowed?' }).parentElement).toBe(row);
+  const cols = Array.from(table.querySelectorAll('col'));
+  expect(cols.length).toBe(5);
+  // "What does it do" (3rd) takes the flexible remainder (no width of its own); every other column has a fixed width, and
+  // at a reference table width the remainder is at least as large as each of them, so it stays the widest column.
+  expect(cols[2].style.width).toBe('');
+  const REF = 1000;
+  const fixedPx = cols.filter((_, i) => i !== 2).map(col => {
+    expect(col.style.width).not.toBe('');
+    return isPercent(col) ? (parseFloat(col.style.width) / 100) * REF : parseFloat(col.style.width);
+  });
+  const remainder = REF - fixedPx.reduce((a, b) => a + b, 0);
+  fixedPx.forEach(width => expect(remainder).toBeGreaterThanOrEqual(width));
 });
+
+function isPercent(col: HTMLElement) {
+  return col.style.width.endsWith('%');
+}
