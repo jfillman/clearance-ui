@@ -27,10 +27,13 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
   // The long name is in a chip that is allowed to wrap,.
   const chip = screen.getByText(longName);
   expect(chip.className).toMatch(/wrapChip/);
-  // The tab's panels stack (the table takes the full tab width, the dry-run form sits below), they do not sit side by side.
+  // The tab's panels stack (the dry-run form first, the table below it at the full tab width), they do not sit side by side.
   const row = table.closest('[class*="row"]')!;
   expect(css).toMatch(new RegExp(`\\.${Array.from(row.classList).find(k => k.includes('row'))}\\s*\\{[^}]*flex-direction: column`));
-  expect(screen.getByRole('region', { name: 'Would this be allowed?' }).parentElement).toBe(row);
+  // The dry-run panel comes first, then the table, so it is always in view.
+  const panel = screen.getByRole('region', { name: 'Would this be allowed?' });
+  expect(panel.parentElement).toBe(row);
+  expect(panel.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   const cols = Array.from(table.querySelectorAll('col'));
   expect(cols.length).toBe(5);
   // "What does it do" (3rd) takes the flexible remainder (no width of its own); every other column has a fixed width, and
@@ -48,3 +51,16 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
 function isPercent(col: HTMLElement) {
   return col.style.width.endsWith('%');
 }
+
+it('the dry-run panel is above the table on the Runtime rules sub-tab too', async () => {
+  const rulesTransport = createFakeTransport(call => {
+    if (call.path.startsWith('/v1/policy')) return { rules: [{ id: 'R001', name: 'n', expression: 'true', pack: 'core' }], tools: [], packs: [] };
+    if (call.path.startsWith('/v1/evidence/counts')) return { items: [] };
+    if (call.path.startsWith('/v1/agents')) return { items: [] };
+    return undefined;
+  });
+  render(<ClearanceTransportProvider transport={rulesTransport}><PolicyView now={Date.parse('2026-11-14T00:00:00Z')} /></ClearanceTransportProvider>);
+  const rulesTable = await waitFor(() => screen.getByText('R001').closest('table')!);
+  const panel = screen.getByRole('region', { name: 'Would this be allowed?' });
+  expect(panel.compareDocumentPosition(rulesTable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

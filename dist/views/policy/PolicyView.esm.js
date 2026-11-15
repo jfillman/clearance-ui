@@ -28,13 +28,18 @@ const useStyles = makeStyles(() => ({
   anywhere: { display: "block", overflowWrap: "anywhere" },
   // Chip is nowrap by default; a tool name wraps, but only after a dot or underscore (see breakable); doubled class beats the chip's own.
   wrapChip: { "&&": { whiteSpace: "normal", overflowWrap: "break-word", lineHeight: 1.35, textAlign: "left", maxWidth: "100%" } },
-  // The dry-run fields sit in a row where there is room and stack when there is not; everything else spans the form.
-  pad: { padding: "12px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, alignItems: "start" },
-  full: { gridColumn: "1 / -1" },
+  // The dry-run form is one compact row (Agent, Tool, Args, Run) that wraps when there is not room; a result or an
+  // error spans the panel under it. It sits above the tables so it is always in view, not sticky (nothing here is).
+  pad: { padding: "8px 18px 12px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" },
+  cell: { flex: "1 1 180px", minWidth: 0 },
+  cellArgs: { flex: "2 1 260px", minWidth: 0 },
+  // Args is one line tall and grows while it has focus (a JSON object may need room).
+  argsInput: { "&&": { minHeight: 0, height: 34, resize: "none", whiteSpace: "pre", overflow: "hidden", "&:focus": { height: 96, whiteSpace: "pre-wrap", overflow: "auto" } } },
+  full: { flexBasis: "100%" },
   path: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   verdict: { display: "flex", flexDirection: "column", gap: 6 },
   ruleDetail: { display: "flex", flexDirection: "column", gap: 6, padding: "10px 18px" },
-  run: { justifySelf: "start" }
+  run: { flex: "0 0 auto", marginBottom: 1 }
 }));
 function breakable(text, at) {
   const parts = text.split(new RegExp(`(?<=${at.source})`));
@@ -70,6 +75,7 @@ function PolicyView({ now: nowProp }) {
     ) }),
     policy.error && !policy.data && /* @__PURE__ */ jsx("div", { style: { marginBottom: 12 }, children: /* @__PURE__ */ jsx(TabError, { error: policy.error, what: "the policy", onRetry: policy.refresh }) }),
     /* @__PURE__ */ jsxs("div", { className: c.row, children: [
+      /* @__PURE__ */ jsx(Explainer, { rules, tools }),
       sub === "rules" ? /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Deny rules", title: "Deny rules, in evaluation order", meta: /* @__PURE__ */ jsx(Count, { children: "CEL \xB7 first match denies \xB7 an expression that fails to evaluate denies (R000)" }), count: `hits, 7 days${hits.data ? "" : " \u2026"}`, children: [
         policy.loading && !policy.data && /* @__PURE__ */ jsx(PanelSkeleton, { rows: 4, label: "Loading\u2026" }),
         rules.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
@@ -134,8 +140,7 @@ function PolicyView({ now: nowProp }) {
             ] }) : null
           ] }) })
         ] }, tool.name)) })
-      ] }) }) }),
-      /* @__PURE__ */ jsx(Explainer, { rules, tools })
+      ] }) }) })
     ] })
   ] });
 }
@@ -171,21 +176,21 @@ function Explainer({ rules, tools }) {
     }
   };
   return /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Would this be allowed?", title: "Would this be allowed?", meta: /* @__PURE__ */ jsx(Count, { children: "dry-runs the real policy on a fresh session \xB7 records nothing" }), children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
-    /* @__PURE__ */ jsx(Field, { label: "Agent", children: ({ className }) => /* @__PURE__ */ jsxs("select", { className, value: agent, onChange: (e) => setAgent(e.target.value), children: [
+    /* @__PURE__ */ jsx("div", { className: c.cell, children: /* @__PURE__ */ jsx(Field, { label: "Agent", children: ({ className }) => /* @__PURE__ */ jsxs("select", { className, value: agent, onChange: (e) => setAgent(e.target.value), children: [
       /* @__PURE__ */ jsx("option", { value: "", children: "choose an agent" }),
       (agents.data?.items ?? []).map((a) => /* @__PURE__ */ jsx("option", { value: a.name, children: a.name }, a.name))
-    ] }) }),
-    /* @__PURE__ */ jsx(Field, { label: "Tool", children: ({ className }) => /* @__PURE__ */ jsxs("select", { className, value: tool, onChange: (e) => setTool(e.target.value), children: [
+    ] }) }) }),
+    /* @__PURE__ */ jsx("div", { className: c.cell, children: /* @__PURE__ */ jsx(Field, { label: "Tool", children: ({ className }) => /* @__PURE__ */ jsxs("select", { className, value: tool, onChange: (e) => setTool(e.target.value), children: [
       /* @__PURE__ */ jsx("option", { value: "", children: "choose a tool" }),
       tools.map((x) => /* @__PURE__ */ jsxs("option", { value: x.name, children: [
         x.tier,
         " ",
         x.name
       ] }, x.name))
-    ] }) }),
-    /* @__PURE__ */ jsx(Field, { label: "Args (JSON)", children: ({ className }) => /* @__PURE__ */ jsx("textarea", { className: `${className} ${inp.textarea}`, value: args, onChange: (e) => setArgs(e.target.value), spellCheck: false }) }),
+    ] }) }) }),
+    /* @__PURE__ */ jsx("div", { className: c.cellArgs, children: /* @__PURE__ */ jsx(Field, { label: "Args (JSON)", children: ({ className }) => /* @__PURE__ */ jsx("textarea", { className: `${className} ${inp.textarea} ${c.argsInput}`, rows: 1, value: args, onChange: (e) => setArgs(e.target.value), spellCheck: false }) }) }),
     argsError && /* @__PURE__ */ jsx("span", { className: `${inp.problem} ${c.full}`, children: argsError }),
-    /* @__PURE__ */ jsx(Button, { variant: "primary", className: `${c.run} ${c.full}`, onClick: run, disabled: busy || !agent || !tool || !!argsError, children: busy ? "Running\u2026" : "Run dry run" }),
+    /* @__PURE__ */ jsx(Button, { variant: "primary", className: c.run, onClick: run, disabled: busy || !agent || !tool || !!argsError, children: busy ? "Running\u2026" : "Run dry run" }),
     error && /* @__PURE__ */ jsx("span", { className: `${inp.problem} ${c.full}`, children: error }),
     out && /* @__PURE__ */ jsxs("div", { className: `${c.verdict} ${c.full}`, "aria-live": "polite", children: [
       /* @__PURE__ */ jsxs("div", { className: c.path, children: [
