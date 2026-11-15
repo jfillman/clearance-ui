@@ -33,12 +33,16 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
   expect(screen.getByRole('region', { name: 'Would this be allowed?' }).parentElement).toBe(row);
   const cols = Array.from(table.querySelectorAll('col'));
   expect(cols.length).toBe(5);
-  // "What does it do" (3rd) takes the flexible remainder (no width of its own); every other column has a fixed share, so
-  // it is the widest column and its long text does not wrap into a tall row.
+  // "What does it do" (3rd) takes the flexible remainder (no width of its own); every other column has a fixed width, and
+  // at a reference table width the remainder is at least as large as each of them, so it stays the widest column.
   expect(cols[2].style.width).toBe('');
-  cols.filter((_, i) => i !== 2).forEach(col => expect(col.style.width).not.toBe(''));
-  const shares = cols.filter((_, i) => i !== 2 && isPercent(cols[i])).map(col => parseFloat(col.style.width));
-  expect(shares.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(60);
+  const REF = 1000;
+  const fixedPx = cols.filter((_, i) => i !== 2).map(col => {
+    expect(col.style.width).not.toBe('');
+    return isPercent(col) ? (parseFloat(col.style.width) / 100) * REF : parseFloat(col.style.width);
+  });
+  const remainder = REF - fixedPx.reduce((a, b) => a + b, 0);
+  fixedPx.forEach(width => expect(remainder).toBeGreaterThanOrEqual(width));
 });
 
 function isPercent(col: HTMLElement) {
