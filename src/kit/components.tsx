@@ -124,14 +124,15 @@ export function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now(
 
 /**
  * The budgets a Session carries, as BudgetBars. A live session's run time counts to `now`; an ended one counts to
- * outcome.finished_at (a session with no outcome that is past its deadline ran to expires_at, so the full TTL; a closed
- * one with no outcome has no end time to show).
+ * outcome.finished_at (an expired one (not closed, past its deadline) shows the full TTL; a closed one with no outcome has
+ * no end time to show).
  */
 export function SessionBudgets({ session, now = Date.now() }: { session: Session; now?: number }) {
   const finished = session.outcome?.finished_at;
-  const pastDeadline = now >= new Date(session.expires_at).getTime();
-  const ended = !!finished || (session.closed && !pastDeadline);
-  const endedAt = finished ?? (session.closed && pastDeadline ? session.expires_at : undefined);
+  // Closed with no outcome has no known end time, whatever the clock says; only a session that is not closed and is past
+  // its deadline (expired) ran to expires_at, and a live one counts to now (BudgetBars clamps it to expires_at).
+  const ended = !!finished || session.closed;
+  const endedAt = finished;
   return <BudgetBars used={session.used} limits={session.limits} createdAt={session.created_at} expiresAt={session.expires_at} now={now} endedAt={endedAt} ended={ended} />;
 }
 

@@ -114,4 +114,10 @@ describe('SessionBudgets run time', () => {
     render(<SessionBudgets session={{ ...base, closed: true, state: 'closed' }} now={Date.parse('2026-11-15T21:10:00Z')} />);
     expect(runTime()).toContain('ended (limit 20 min)');
   });
+
+  it('a closed session with no end time reads the same however late it is looked at', () => {
+    render(<SessionBudgets session={{ ...base, closed: true, state: 'closed' }} now={Date.parse('2026-11-16T00:00:01Z')} />);
+    expect(runTime()).toContain('ended (limit 20 min)');
+    expect(runTime()).not.toContain('20 min of 20 min');
+  });
 });

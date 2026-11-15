@@ -90,9 +90,8 @@ function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now(), ende
 }
 function SessionBudgets({ session, now = Date.now() }) {
   const finished = session.outcome?.finished_at;
-  const pastDeadline = now >= new Date(session.expires_at).getTime();
-  const ended = !!finished || session.closed && !pastDeadline;
-  const endedAt = finished ?? (session.closed && pastDeadline ? session.expires_at : void 0);
+  const ended = !!finished || session.closed;
+  const endedAt = finished;
   return /* @__PURE__ */ jsx(BudgetBars, { used: session.used, limits: session.limits, createdAt: session.created_at, expiresAt: session.expires_at, now, endedAt, ended });
 }
 const FIELD_ORDER = ["principal", "agent", "session", "task_id", "tool", "tier", "decision", "rule", "target", "app", "result", "args_sha256", "effect"];

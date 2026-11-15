@@ -1035,8 +1035,8 @@ declare function BudgetBars({ used, limits, createdAt, expiresAt, now, endedAt, 
 }): react.JSX.Element;
 /**
  * The budgets a Session carries, as BudgetBars. A live session's run time counts to `now`; an ended one counts to
- * outcome.finished_at (a session with no outcome that is past its deadline ran to expires_at, so the full TTL; a closed
- * one with no outcome has no end time to show).
+ * outcome.finished_at (an expired one (not closed, past its deadline) shows the full TTL; a closed one with no outcome has
+ * no end time to show).
  */
 declare function SessionBudgets({ session, now }: {
     session: Session;
