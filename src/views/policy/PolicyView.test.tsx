@@ -27,5 +27,16 @@ it('the Tool rules table is laid out on fixed columns and wraps long values, so 
   // The long name is in a chip that is allowed to wrap,.
   const chip = screen.getByText(longName);
   expect(chip.className).toMatch(/wrapChip/);
-  expect(table.querySelectorAll('col').length).toBe(5);
+  const cols = Array.from(table.querySelectorAll('col'));
+  expect(cols.length).toBe(5);
+  // "What does it do" (3rd) takes the flexible remainder (no width of its own); every other column has a fixed share, so
+  // it is the widest column and its long text does not wrap into a tall row.
+  expect(cols[2].style.width).toBe('');
+  cols.filter((_, i) => i !== 2).forEach(col => expect(col.style.width).not.toBe(''));
+  const shares = cols.filter((_, i) => i !== 2 && isPercent(cols[i])).map(col => parseFloat(col.style.width));
+  expect(shares.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(55);
 });
+
+function isPercent(col: HTMLElement) {
+  return col.style.width.endsWith('%');
+}

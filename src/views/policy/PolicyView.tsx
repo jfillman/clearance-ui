@@ -154,7 +154,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
             {tools.length > 0 && (
               <div className={c.scroll}>
                 <table className={`${tk.table} ${c.fixed}`} data-testid="tool-rules-table">
-                  <colgroup><col style={{ width: '30%' }} /><col style={{ width: 68 }} /><col style={{ width: '20%' }} /><col style={{ width: '17%' }} /><col /></colgroup>
+                  <colgroup><col style={{ width: '20%' }} /><col style={{ width: 68 }} /><col /><col style={{ width: '19%' }} /><col style={{ width: '13%' }} /></colgroup>
                   <thead><tr><th className={tk.th}>Tool</th><th className={tk.th}>Tier</th><th className={tk.th}>What it does</th><th className={tk.th}>Needs</th><th className={tk.th}>Acts on</th></tr></thead>
                   <tbody>
                     {tools.map(tool => (
@@ -162,7 +162,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
                         <td className={tk.td}><Chip className={c.wrapChip}>{breakable(tool.name, /\./)}</Chip></td>
                         <td className={tk.td}><TierChip tier={tool.tier as any} /></td>
                         <td className={`${tk.td} ${c.wrap}`}>{tool.summary}{tool.propose_only && <div className={tk.meta}>propose only: a person merges</div>}</td>
-                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{breakable(tool.required_args.join(', ') || '—', /_/)}</span></td>
+                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{tool.required_args.length ? tool.required_args.map(a => <span key={a} className={c.clip}>{a}</span>) : '—'}</span></td>
                         <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>
                           {tool.target === 'none' ? '—' : <Tooltip title={tool.target}><span className={c.clip}>{tool.target}</span></Tooltip>}
                           {tool.github_cost ? <span className={c.clip}>{tool.github_cost} GitHub calls</span> : null}

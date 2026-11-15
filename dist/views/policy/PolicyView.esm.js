@@ -102,11 +102,11 @@ function PolicyView({ now: nowProp }) {
         ] }) })
       ] }) : /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Tool rules", title: "Tool rules", meta: /* @__PURE__ */ jsx(Count, { children: "What Clearance checks for each tool. The tools themselves are served by the gateway." }), count: `${tools.length} tools`, style: { flex: "1.5 1 600px" }, children: tools.length > 0 && /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: `${tk.table} ${c.fixed}`, "data-testid": "tool-rules-table", children: [
         /* @__PURE__ */ jsxs("colgroup", { children: [
-          /* @__PURE__ */ jsx("col", { style: { width: "30%" } }),
-          /* @__PURE__ */ jsx("col", { style: { width: 68 } }),
           /* @__PURE__ */ jsx("col", { style: { width: "20%" } }),
-          /* @__PURE__ */ jsx("col", { style: { width: "17%" } }),
-          /* @__PURE__ */ jsx("col", {})
+          /* @__PURE__ */ jsx("col", { style: { width: 68 } }),
+          /* @__PURE__ */ jsx("col", {}),
+          /* @__PURE__ */ jsx("col", { style: { width: "19%" } }),
+          /* @__PURE__ */ jsx("col", { style: { width: "13%" } })
         ] }),
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
           /* @__PURE__ */ jsx("th", { className: tk.th, children: "Tool" }),
@@ -122,7 +122,7 @@ function PolicyView({ now: nowProp }) {
             tool.summary,
             tool.propose_only && /* @__PURE__ */ jsx("div", { className: tk.meta, children: "propose only: a person merges" })
           ] }),
-          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: breakable(tool.required_args.join(", ") || "\u2014", /_/) }) }),
+          /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: tool.required_args.length ? tool.required_args.map((a) => /* @__PURE__ */ jsx("span", { className: c.clip, children: a }, a)) : "\u2014" }) }),
           /* @__PURE__ */ jsx("td", { className: `${tk.td} ${c.wrap}`, children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
             tool.target === "none" ? "\u2014" : /* @__PURE__ */ jsx(Tooltip, { title: tool.target, children: /* @__PURE__ */ jsx("span", { className: c.clip, children: tool.target }) }),
             tool.github_cost ? /* @__PURE__ */ jsxs("span", { className: c.clip, children: [
