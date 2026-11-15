@@ -71,7 +71,7 @@ const WEEK_MS = 7 * 86_400_000;
 
 // Layout only: every look is the kit's.
 const useStyles = makeStyles<Theme>(() => ({
-  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits below.
+  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits above the tables.
   row: { display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch' },
   scroll: { overflowX: 'auto' },
   // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
@@ -82,13 +82,18 @@ const useStyles = makeStyles<Theme>(() => ({
   anywhere: { display: 'block', overflowWrap: 'anywhere' },
   // Chip is nowrap by default; a tool name wraps, but only after a dot or underscore (see breakable); doubled class beats the chip's own.
   wrapChip: { '&&': { whiteSpace: 'normal', overflowWrap: 'break-word', lineHeight: 1.35, textAlign: 'left', maxWidth: '100%' } },
-  // The dry-run fields sit in a row where there is room and stack when there is not; everything else spans the form.
-  pad: { padding: '12px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, alignItems: 'start' },
-  full: { gridColumn: '1 / -1' },
+  // The dry-run form is one compact row (Agent, Tool, Args, Run) that wraps when there is not room; a result or an
+  // error spans the panel under it. It sits above the tables so it is always in view, not sticky (nothing here is).
+  pad: { padding: '8px 18px 12px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' },
+  cell: { flex: '1 1 180px', minWidth: 0 },
+  cellArgs: { flex: '2 1 260px', minWidth: 0 },
+  // Args is one line tall and grows while it has focus (a JSON object may need room).
+  argsInput: { '&&': { minHeight: 0, height: 34, resize: 'none', whiteSpace: 'pre', overflow: 'hidden', '&:focus': { height: 96, whiteSpace: 'pre-wrap', overflow: 'auto' } } },
+  full: { flexBasis: '100%' },
   path: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   verdict: { display: 'flex', flexDirection: 'column', gap: 6 },
   ruleDetail: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 18px' },
-  run: { justifySelf: 'start' },
+  run: { flex: '0 0 auto', marginBottom: 1 },
 }));
 
 /** A value that may wrap only after each match of `at` (a dot or an underscore), never mid-word. */
@@ -126,6 +131,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
       </FilterBar>
       {policy.error && !policy.data && <div style={{ marginBottom: 12 }}><TabError error={policy.error} what="the policy" onRetry={policy.refresh} /></div>}
       <div className={c.row}>
+        <Explainer rules={rules} tools={tools} />
         {sub === 'rules' ? (
           <Section framed aria-label="Deny rules" title="Deny rules, in evaluation order" meta={<Count>CEL · first match denies · an expression that fails to evaluate denies (R000)</Count>} count={`hits, 7 days${hits.data ? '' : ' …'}`}>
             {policy.loading && !policy.data && <PanelSkeleton rows={4} label="Loading…" />}
@@ -178,7 +184,6 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
             )}
           </Section>
         )}
-        <Explainer rules={rules} tools={tools} />
       </div>
     </>
   );
@@ -218,27 +223,27 @@ function Explainer({ rules, tools }: { rules: PolicyRule[]; tools: PolicyTool[] 
   return (
     <Section framed aria-label="Would this be allowed?" title="Would this be allowed?" meta={<Count>dry-runs the real policy on a fresh session · records nothing</Count>}>
       <div className={c.pad}>
-        <Field label="Agent">
+        <div className={c.cell}><Field label="Agent">
           {({ className }) => (
             <select className={className} value={agent} onChange={e => setAgent(e.target.value)}>
               <option value="">choose an agent</option>
               {(agents.data?.items ?? []).map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
             </select>
           )}
-        </Field>
-        <Field label="Tool">
+        </Field></div>
+        <div className={c.cell}><Field label="Tool">
           {({ className }) => (
             <select className={className} value={tool} onChange={e => setTool(e.target.value)}>
               <option value="">choose a tool</option>
               {tools.map(x => <option key={x.name} value={x.name}>{x.tier} {x.name}</option>)}
             </select>
           )}
-        </Field>
-        <Field label="Args (JSON)">
-          {({ className }) => <textarea className={`${className} ${inp.textarea}`} value={args} onChange={e => setArgs(e.target.value)} spellCheck={false} />}
-        </Field>
+        </Field></div>
+        <div className={c.cellArgs}><Field label="Args (JSON)">
+          {({ className }) => <textarea className={`${className} ${inp.textarea} ${c.argsInput}`} rows={1} value={args} onChange={e => setArgs(e.target.value)} spellCheck={false} />}
+        </Field></div>
         {argsError && <span className={`${inp.problem} ${c.full}`}>{argsError}</span>}
-        <Button variant="primary" className={`${c.run} ${c.full}`} onClick={run} disabled={busy || !agent || !tool || !!argsError}>
+        <Button variant="primary" className={c.run} onClick={run} disabled={busy || !agent || !tool || !!argsError}>
           {busy ? 'Running…' : 'Run dry run'}
         </Button>
         {error && <span className={`${inp.problem} ${c.full}`}>{error}</span>}
