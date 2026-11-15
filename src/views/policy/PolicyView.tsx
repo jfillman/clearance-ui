@@ -14,10 +14,10 @@ import {
   Hint,
   PanelSkeleton,
   Section,
-  Tooltip,
   StatusChip,
   TabError,
   TierChip,
+  Tooltip,
   useClearanceRead,
   useClearanceTokens,
   useInputClass,
@@ -71,21 +71,24 @@ const WEEK_MS = 7 * 86_400_000;
 
 // Layout only: every look is the kit's.
 const useStyles = makeStyles<Theme>(() => ({
-  row: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' },
+  // One column: each panel takes the full width of the tab (the tool table needs it), the dry-run form sits below.
+  row: { display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch' },
   scroll: { overflowX: 'auto' },
   // The tool table is laid out on fixed column widths so it fits its panel: a long tool name or target wraps in its
   // own column instead of widening the table past the panel (the holder above is only a fallback for very narrow panels).
   fixed: { tableLayout: 'fixed' },
   wrap: { overflowWrap: 'break-word', minWidth: 0 },
-  // One line with an ellipsis (the full value is the Tooltip), for a value with no place to break, such as a target URL.
-  clip: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  // A value with no natural break (a target URL, an argument name) wraps wherever it must rather than being cut off; the title keeps the whole value.
+  anywhere: { display: 'block', overflowWrap: 'anywhere' },
   // Chip is nowrap by default; a tool name wraps, but only after a dot or underscore (see breakable); doubled class beats the chip's own.
   wrapChip: { '&&': { whiteSpace: 'normal', overflowWrap: 'break-word', lineHeight: 1.35, textAlign: 'left', maxWidth: '100%' } },
-  pad: { padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
+  // The dry-run fields sit in a row where there is room and stack when there is not; everything else spans the form.
+  pad: { padding: '12px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, alignItems: 'start' },
+  full: { gridColumn: '1 / -1' },
   path: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   verdict: { display: 'flex', flexDirection: 'column', gap: 6 },
   ruleDetail: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 18px' },
-  run: { alignSelf: 'flex-start' },
+  run: { justifySelf: 'start' },
 }));
 
 /** A value that may wrap only after each match of `at` (a dot or an underscore), never mid-word. */
@@ -124,7 +127,7 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
       {policy.error && !policy.data && <div style={{ marginBottom: 12 }}><TabError error={policy.error} what="the policy" onRetry={policy.refresh} /></div>}
       <div className={c.row}>
         {sub === 'rules' ? (
-          <Section framed aria-label="Deny rules" title="Deny rules, in evaluation order" meta={<Count>CEL · first match denies · an expression that fails to evaluate denies (R000)</Count>} count={`hits, 7 days${hits.data ? '' : ' …'}`} style={{ flex: '1.5 1 600px' }}>
+          <Section framed aria-label="Deny rules" title="Deny rules, in evaluation order" meta={<Count>CEL · first match denies · an expression that fails to evaluate denies (R000)</Count>} count={`hits, 7 days${hits.data ? '' : ' …'}`}>
             {policy.loading && !policy.data && <PanelSkeleton rows={4} label="Loading…" />}
             {rules.length > 0 && (
               <div className={c.scroll}>
@@ -150,11 +153,11 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
             )}
           </Section>
         ) : (
-          <Section framed aria-label="Tool rules" title="Tool rules" meta={<Count>What Clearance checks for each tool. The tools themselves are served by the gateway.</Count>} count={`${tools.length} tools`} style={{ flex: '1.5 1 600px' }}>
+          <Section framed aria-label="Tool rules" title="Tool rules" meta={<Count>What Clearance checks for each tool. The tools themselves are served by the gateway.</Count>} count={`${tools.length} tools`}>
             {tools.length > 0 && (
               <div className={c.scroll}>
                 <table className={`${tk.table} ${c.fixed}`} data-testid="tool-rules-table">
-                  <colgroup><col style={{ width: '20%' }} /><col style={{ width: 68 }} /><col /><col style={{ width: '19%' }} /><col style={{ width: '13%' }} /></colgroup>
+                  <colgroup><col style={{ width: '27%' }} /><col style={{ width: 68 }} /><col /><col style={{ width: '15%' }} /><col style={{ width: '18%' }} /></colgroup>
                   <thead><tr><th className={tk.th}>Tool</th><th className={tk.th}>Tier</th><th className={tk.th}>What it does</th><th className={tk.th}>Needs</th><th className={tk.th}>Acts on</th></tr></thead>
                   <tbody>
                     {tools.map(tool => (
@@ -162,10 +165,10 @@ export function PolicyView({ now: nowProp }: { now?: number }) {
                         <td className={tk.td}><Chip className={c.wrapChip}>{breakable(tool.name, /\./)}</Chip></td>
                         <td className={tk.td}><TierChip tier={tool.tier as any} /></td>
                         <td className={`${tk.td} ${c.wrap}`}>{tool.summary}{tool.propose_only && <div className={tk.meta}>propose only: a person merges</div>}</td>
-                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{tool.required_args.length ? tool.required_args.map(a => <span key={a} className={c.clip}>{a}</span>) : '—'}</span></td>
+                        <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>{tool.required_args.length ? tool.required_args.map(a => <Tooltip key={a} title={a}><span className={c.anywhere}>{a}</span></Tooltip>) : '—'}</span></td>
                         <td className={`${tk.td} ${c.wrap}`}><span className={tk.meta}>
-                          {tool.target === 'none' ? '—' : <Tooltip title={tool.target}><span className={c.clip}>{tool.target}</span></Tooltip>}
-                          {tool.github_cost ? <span className={c.clip}>{tool.github_cost} GitHub calls</span> : null}
+                          {tool.target === 'none' ? '—' : <Tooltip title={tool.target}><span className={c.anywhere}>{tool.target}</span></Tooltip>}
+                          {tool.github_cost ? <span className={c.anywhere}>{tool.github_cost} GitHub calls</span> : null}
                         </span></td>
                       </tr>
                     ))}
@@ -213,7 +216,7 @@ function Explainer({ rules, tools }: { rules: PolicyRule[]; tools: PolicyTool[] 
     }
   };
   return (
-    <Section framed aria-label="Would this be allowed?" title="Would this be allowed?" meta={<Count>dry-runs the real policy on a fresh session · records nothing</Count>} style={{ flex: '1 1 360px' }}>
+    <Section framed aria-label="Would this be allowed?" title="Would this be allowed?" meta={<Count>dry-runs the real policy on a fresh session · records nothing</Count>}>
       <div className={c.pad}>
         <Field label="Agent">
           {({ className }) => (
@@ -234,13 +237,13 @@ function Explainer({ rules, tools }: { rules: PolicyRule[]; tools: PolicyTool[] 
         <Field label="Args (JSON)">
           {({ className }) => <textarea className={`${className} ${inp.textarea}`} value={args} onChange={e => setArgs(e.target.value)} spellCheck={false} />}
         </Field>
-        {argsError && <span className={inp.problem}>{argsError}</span>}
-        <Button variant="primary" className={c.run} onClick={run} disabled={busy || !agent || !tool || !!argsError}>
+        {argsError && <span className={`${inp.problem} ${c.full}`}>{argsError}</span>}
+        <Button variant="primary" className={`${c.run} ${c.full}`} onClick={run} disabled={busy || !agent || !tool || !!argsError}>
           {busy ? 'Running…' : 'Run dry run'}
         </Button>
-        {error && <span className={inp.problem}>{error}</span>}
+        {error && <span className={`${inp.problem} ${c.full}`}>{error}</span>}
         {out && (
-          <div className={c.verdict} aria-live="polite">
+          <div className={`${c.verdict} ${c.full}`} aria-live="polite">
             <div className={c.path}><DecisionChip decision={out.decision.allow ? 'allow' : 'deny'} rule={out.decision.rule} />{out.decision.name && <Count>{out.decision.name}</Count>}{!out.known_tool && <StatusChip tone="warn">unknown tool</StatusChip>}</div>
             {!out.decision.allow && <span>{out.decision.message}</span>}
             {out.decision.hint && <Hint>Hint: {out.decision.hint}</Hint>}
