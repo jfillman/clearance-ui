@@ -71,7 +71,7 @@ export function StateChip({ state, tripped, reason, outcome }: { state: SessionS
   return <StatusChip tone="neutral" title="the session reached its time limit">expired</StatusChip>;
 }
 
-export function BudgetBar({ label, used, limit, format = String }: { label: string; used: number | undefined; limit: number | undefined; format?: (n: number) => string }) {
+export function BudgetBar({ label, used, limit, format = String, valueText }: { label: string; used: number | undefined; limit: number | undefined; format?: (n: number) => string; valueText?: string }) {
   const t = useClearanceTokens();
   const c = useStyles();
   const r = ratio(used, limit);
@@ -85,20 +85,34 @@ export function BudgetBar({ label, used, limit, format = String }: { label: stri
       <div className={c.track}>
         <div className={c.fill} style={{ width: `${Math.round(r * 100)}%`, background: color }} />
       </div>
-      <span className={c.barValue}>{limit ? `${format(u)} of ${format(limit)}` : format(u)}</span>
+      <span className={c.barValue}>{valueText ?? (limit ? `${format(u)} of ${format(limit)}` : format(u))}</span>
     </div>
   );
 }
 
 const minutesBetween = (a: string, b: string) => Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 60000);
 
-/** Every budget a session has, used against its limits, as bars. Time is elapsed against the session's TTL. */
-export function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now() }: { used: Record<string, number>; limits: SessionLimits; createdAt?: string; expiresAt?: string; now?: number }) {
+/** Minutes as the bar shows them: seconds under a minute, minutes and seconds under ten, whole minutes after. */
+export function formatMinutes(n: number): string {
+  const secs = Math.round(n * 60);
+  if (secs < 60) return `${secs} s`;
+  if (secs < 600 && secs % 60 !== 0) return `${Math.floor(secs / 60)} min ${secs % 60} s`;
+  return `${Math.round(secs / 60)} min`;
+}
+
+/**
+ * Every budget a session has, used against its limits, as bars. Time is elapsed against the session's TTL: up to `now`
+ * while the session is live, up to `endedAt` once it has ended (`ended` with no `endedAt` means the end time is unknown,
+ * so the bar shows the limit and no value rather than a made-up one). Never past `expiresAt`.
+ */
+export function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now(), endedAt, ended }: { used: Record<string, number>; limits: SessionLimits; createdAt?: string; expiresAt?: string; now?: number; endedAt?: string; ended?: boolean }) {
   const c = useStyles();
-  const elapsed = createdAt ? minutesBetween(createdAt, new Date(Math.min(now, expiresAt ? new Date(expiresAt).getTime() : now)).toISOString()) : undefined;
+  const endMs = endedAt ? new Date(endedAt).getTime() : now;
+  const elapsed = createdAt ? minutesBetween(createdAt, new Date(Math.min(endMs, expiresAt ? new Date(expiresAt).getTime() : endMs)).toISOString()) : undefined;
+  const unknownEnd = !!ended && !endedAt;
   return (
     <div className={c.bars}>
-      {createdAt && <BudgetBar label="Run time" used={Math.round(elapsed ?? 0)} limit={limits.ttl_minutes} format={n => `${n} min`} />}
+      {createdAt && <BudgetBar label="Run time" used={unknownEnd ? 0 : elapsed ?? 0} limit={limits.ttl_minutes} format={formatMinutes} valueText={unknownEnd ? `ended (limit ${formatMinutes(limits.ttl_minutes)})` : undefined} />}
       <BudgetBar label="Tool calls" used={used.tool_calls} limit={limits.tool_calls} />
       <BudgetBar label="GitHub calls" used={used.github_calls} limit={limits.github_calls} />
       <BudgetBar label="Open PRs" used={used.open_prs} limit={limits.open_prs} />
@@ -108,9 +122,18 @@ export function BudgetBars({ used, limits, createdAt, expiresAt, now = Date.now(
   );
 }
 
-/** The budgets a Session carries, as BudgetBars. */
-export function SessionBudgets({ session, now }: { session: Session; now?: number }) {
-  return <BudgetBars used={session.used} limits={session.limits} createdAt={session.created_at} expiresAt={session.expires_at} now={now} />;
+/**
+ * The budgets a Session carries, as BudgetBars. A live session's run time counts to `now`; an ended one counts to
+ * outcome.finished_at (an expired one (not closed, past its deadline) shows the full TTL; a closed one with no outcome has
+ * no end time to show).
+ */
+export function SessionBudgets({ session, now = Date.now() }: { session: Session; now?: number }) {
+  const finished = session.outcome?.finished_at;
+  // Closed with no outcome has no known end time, whatever the clock says; only a session that is not closed and is past
+  // its deadline (expired) ran to expires_at, and a live one counts to now (BudgetBars clamps it to expires_at).
+  const ended = !!finished || session.closed;
+  const endedAt = finished;
+  return <BudgetBars used={session.used} limits={session.limits} createdAt={session.created_at} expiresAt={session.expires_at} now={now} endedAt={endedAt} ended={ended} />;
 }
 
 const FIELD_ORDER = ['principal', 'agent', 'session', 'task_id', 'tool', 'tier', 'decision', 'rule', 'target', 'app', 'result', 'args_sha256', 'effect'];

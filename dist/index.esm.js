@@ -4,7 +4,7 @@ export { RUNS_IN_TEXT, clock, compact, dateTime, isWorkload, preventFocusScroll,
 export { usePoll } from './kit/usePoll.esm.js';
 export { useMountedNow } from './kit/now.esm.js';
 export { ActionReason, Button, Callout, Card, Checkbox, Chip, ColumnLabel, CopyButton, Count, EmptyNote, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, Hint, IconButton, PageHeader, Panel, PanelSkeleton, SearchField, Section, SectionLabel, SectionTitle, Skeleton, Stat, StatRow, StatusChip, Subtabs, TabError, TabSkeleton, TextLink, Tile, Tooltip, YamlBlock, useInputClass, useTableKit, useTextLinkClass } from './kit/kit.esm.js';
-export { BudgetBar, BudgetBars, DecisionChip, KindChip, SessionBudgets, StateChip, TierChip, VerifiedClaimed, outcomeLabel, tierTone } from './kit/components.esm.js';
+export { BudgetBar, BudgetBars, DecisionChip, KindChip, SessionBudgets, StateChip, TierChip, VerifiedClaimed, formatMinutes, outcomeLabel, tierTone } from './kit/components.esm.js';
 export { FLIGHT_LOG_MAX_HEIGHT, FlightLog, summarize } from './kit/FlightLog.esm.js';
 export { ClearanceTransportProvider, TransportError, useClearanceTransport } from './kit/transport.esm.js';
 export { createFetchTransport } from './kit/fetchTransport.esm.js';
