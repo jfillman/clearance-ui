@@ -256,6 +256,8 @@ export class CoveragePoller {
         }, COVERAGE_REQUEST_MS);
       });
       const data = await Promise.race([req, expired]);
+      // A success with no statement in it (an empty body) is a failed read, never data to show.
+      if (data === null || typeof data !== 'object') throw new Error('coverage read returned no statement');
       e.failures = 0;
       e.snap = { data, updatedAt: this.now(), busy: false, loading: false };
       e.nextAt = this.now() + COVERAGE_POLL_MS;

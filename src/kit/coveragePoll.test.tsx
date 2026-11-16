@@ -176,6 +176,18 @@ describe('shared coverage poll', () => {
     expect(result.current.stale).toBe(false);
   });
 
+  it('a 200 with no statement is a failed read: nothing is stored as data, and it is retried with back-off', async () => {
+    let n = 0;
+    const empty = { get: (async () => (++n === 1 ? undefined : statement('prod'))) as ClearanceRead['get'], getText: async () => '' } as ClearanceRead;
+    const p = poller(empty);
+    const { result } = renderHook(() => useCoveragePoll(empty, 'prod', undefined, p));
+    await flush();
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.busy).toBe(true);
+    await flush(COVERAGE_BACKOFF_BASE_MS);
+    expect(result.current.data).toBeDefined();
+  });
+
   it('a refusal (403) is not retried fast: it waits for the next ordinary poll', async () => {
     const { api, started } = fakeApi(() => ({ refuse: 403, body: { error: 'no' } }));
     const p = poller(api);
@@ -361,6 +373,31 @@ describe('Retry-After on the transport', () => {
     const ac = new AbortController();
     await createFetchTransport({ fetch, url: p => p }).get('/v1/coverage', undefined, { signal: ac.signal });
     expect(seen).toBe(ac.signal);
+  });
+
+  it('an abort between the headers and the body rejects with AbortError instead of resolving with no body', async () => {
+    const ac = new AbortController();
+    const fetch = async () =>
+      ({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        json: async () => {
+          // headers have arrived; the abort lands before the body is read
+          ac.abort();
+          throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+        },
+      }) as unknown as Response;
+    const p = createFetchTransport({ fetch, url: u => u }).get('/v1/coverage', undefined, { signal: ac.signal });
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('an empty body still reads as undefined on a call with no signal, and a 204 write still resolves', async () => {
+    const empty = (status: number) => async () => ({ ok: status < 300, status, headers: { get: () => null }, json: async () => { throw new SyntaxError('no body'); } }) as unknown as Response;
+    const t = createFetchTransport({ fetch: empty(200), url: u => u });
+    await expect(t.get('/v1/x')).resolves.toBeUndefined();
+    await expect(createFetchTransport({ fetch: empty(204), url: u => u }).post('/v1/x', {})).resolves.toEqual({});
+    await expect(createFetchTransport({ fetch: empty(204), url: u => u }).delete('/v1/x')).resolves.toEqual({});
   });
 
   it('the fetch transport carries it from a 503 to the TransportError', async () => {

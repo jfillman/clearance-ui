@@ -8,7 +8,10 @@ function createFetchTransport({ fetch, url }) {
       const qs = q.toString();
       const target = `${await url(path, "read")}${qs ? `?${qs}` : ""}`;
       const res = await (opts?.signal ? fetch(target, { signal: opts.signal }) : fetch(target));
-      const body = await res.json().catch(() => void 0);
+      const body = await res.json().catch((e) => {
+        if (opts?.signal?.aborted || e && typeof e === "object" && e.name === "AbortError") throw e;
+        return void 0;
+      });
       if (!res.ok) throw new TransportError(path, res.status, body, void 0, parseRetryAfter(res.headers?.get("Retry-After")));
       return body;
     },

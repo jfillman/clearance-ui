@@ -20,7 +20,11 @@ export function createFetchTransport({ fetch, url }: FetchTransportOptions): Cle
       const qs = q.toString();
       const target = `${await url(path, 'read')}${qs ? `?${qs}` : ''}`;
       const res = await (opts?.signal ? fetch(target, { signal: opts.signal }) : fetch(target));
-      const body = await res.json().catch(() => undefined);
+      // An empty or invalid body is `undefined`, as always; an abort between the headers and the body is not a body at all.
+      const body = await res.json().catch(e => {
+        if (opts?.signal?.aborted || (e && typeof e === 'object' && (e as { name?: unknown }).name === 'AbortError')) throw e;
+        return undefined;
+      });
       if (!res.ok) throw new TransportError(path, res.status, body, undefined, parseRetryAfter(res.headers?.get('Retry-After')));
       return body as T;
     },
