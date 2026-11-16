@@ -177,7 +177,7 @@ export function TargetDetailView({ id, win, onWindow, onBack, onNavigate }: { id
                     <div className={tk.meta}>{[ch.owner ? `owner ${ch.owner}` : '', ch.cleared_by ? `cleared by ${ch.cleared_by}` : ''].filter(Boolean).join(' · ')}</div>
                   </td>
                   <td className={tk.td}><StatusChip tone={changeTone(ch.state)}>{ch.state}</StatusChip></td>
-                  <td className={tk.td}>{ageWords(ch.age_seconds)}</td>
+                  <td className={tk.td}>{ch.updated_at ? <Tooltip title={`Last updated ${whenTitle(ch.updated_at)}`}><span>{ageWords(ch.age_seconds)}</span></Tooltip> : ageWords(ch.age_seconds)}</td>
                 </tr>
               ))}
             </tbody>

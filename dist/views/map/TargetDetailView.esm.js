@@ -1,6 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import '@material-ui/core/styles';
-import { relativeTime, whenTitle } from '../../kit/format.esm.js';
+import { whenTitle, relativeTime } from '../../kit/format.esm.js';
 import 'react';
 import { useTableKit, TabError, PanelSkeleton, TextLink, Callout, Chip, StatusChip, Hint, Card, EmptyNote, Section, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
@@ -180,7 +180,7 @@ function TargetDetailView({ id, win, onWindow, onBack, onNavigate }) {
           /* @__PURE__ */ jsx("div", { className: tk.meta, children: [ch.owner ? `owner ${ch.owner}` : "", ch.cleared_by ? `cleared by ${ch.cleared_by}` : ""].filter(Boolean).join(" \xB7 ") })
         ] }),
         /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: changeTone(ch.state), children: ch.state }) }),
-        /* @__PURE__ */ jsx("td", { className: tk.td, children: ageWords(ch.age_seconds) })
+        /* @__PURE__ */ jsx("td", { className: tk.td, children: ch.updated_at ? /* @__PURE__ */ jsx(Tooltip, { title: `Last updated ${whenTitle(ch.updated_at)}`, children: /* @__PURE__ */ jsx("span", { children: ageWords(ch.age_seconds) }) }) : ageWords(ch.age_seconds) })
       ] }, ch.id)) })
     ] }) }),
     /* @__PURE__ */ jsxs(

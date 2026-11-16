@@ -6,7 +6,7 @@ import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
 import { relativeTime, whenTitle, shortPrincipal } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
-import { Count, FilterBar, FilterSelect, FilterChips, FilterGroup, FilterChip, SearchField, TextLink, Hint, TabError, Callout, Button, Tile, Field, useTableKit, Section, EmptyNote, Checkbox, StatusChip, SectionTitle, Chip, FactGrid, Fact } from '../../kit/kit.esm.js';
+import { Count, FilterBar, FilterSelect, FilterChips, FilterGroup, FilterChip, SearchField, TextLink, Hint, TabError, Callout, Button, Tile, Field, useTableKit, Section, EmptyNote, Checkbox, StatusChip, SectionTitle, Chip, FactGrid, Fact, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -396,7 +396,7 @@ function RowDetail({ row, admin, onChanged, now }) {
       /* @__PURE__ */ jsxs(Fact, { label: "When", children: [
         /* @__PURE__ */ jsx(Time, { iso: row.ts, standalone: true }),
         " (",
-        relativeTime(row.ts, now),
+        /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(row.ts), children: /* @__PURE__ */ jsx("span", { children: relativeTime(row.ts, now) }) }),
         ")"
       ] }),
       /* @__PURE__ */ jsx(Fact, { label: "Actor", children: row.actor || "not attributed" }),
