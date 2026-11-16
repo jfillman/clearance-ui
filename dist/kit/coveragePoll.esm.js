@@ -5,11 +5,13 @@ const COVERAGE_REFOCUS_MS = 6e4;
 const COVERAGE_MAX_STALE_MS = 3 * COVERAGE_POLL_MS;
 const COVERAGE_BACKOFF_BASE_MS = 5e3;
 const COVERAGE_BACKOFF_CAP_MS = 12e4;
+const COVERAGE_RETRY_AFTER_MAX_MS = 60 * 6e4;
+const COVERAGE_REQUEST_MS = 3e4;
 const COVERAGE_CONCURRENCY = 1;
 const JITTER = 0.2;
 const isBusyStatus = (status) => status === 503 || status === 429 || status === 504 || status === 502 || status === 408;
 function retryDelayMs(failures, retryAfterMs) {
-  if (retryAfterMs !== void 0 && retryAfterMs > 0) return Math.min(Math.max(retryAfterMs, 1e3), COVERAGE_BACKOFF_CAP_MS);
+  if (retryAfterMs !== void 0 && retryAfterMs > 0) return Math.min(Math.max(retryAfterMs, 1e3), COVERAGE_RETRY_AFTER_MAX_MS);
   return Math.min(COVERAGE_BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1), COVERAGE_BACKOFF_CAP_MS);
 }
 const retryAfterOf = (e) => {
@@ -20,6 +22,13 @@ const statusOf = (e) => {
   const v = e && typeof e === "object" ? e.status : void 0;
   return typeof v === "number" ? v : void 0;
 };
+function withDeadline(p, ms) {
+  let timer;
+  const expired = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("coverage read timed out")), ms);
+  });
+  return Promise.race([p, expired]).finally(() => clearTimeout(timer));
+}
 class CoveragePoller {
   constructor(api, opts = {}) {
     this.api = api;
@@ -43,7 +52,7 @@ class CoveragePoller {
     let e = this.entries.get(k);
     if (!e) {
       this.prune();
-      e = { scope, from, snap: { busy: false, loading: true }, subscribers: /* @__PURE__ */ new Set(), nextAt: 0, failures: 0, inflight: false, queued: false };
+      e = { scope, from, snap: { busy: false, loading: true }, subscribers: /* @__PURE__ */ new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false };
       this.entries.set(k, e);
     }
     const first = e.subscribers.size === 0;
@@ -74,6 +83,10 @@ class CoveragePoller {
   refresh(scope, from) {
     const e = this.entries.get(this.key(scope, from));
     if (!e || e.subscribers.size === 0) return;
+    if (e.inflight) {
+      e.refreshPending = true;
+      return;
+    }
     e.nextAt = this.now();
     this.schedule();
   }
@@ -143,7 +156,7 @@ class CoveragePoller {
     e.snap = { ...e.snap, loading: true };
     this.notify(e);
     try {
-      const data = await this.api.get("/v1/coverage", { scope: e.scope, from: e.from });
+      const data = await withDeadline(this.api.get("/v1/coverage", { scope: e.scope, from: e.from }), COVERAGE_REQUEST_MS);
       e.failures = 0;
       e.snap = { data, updatedAt: this.now(), busy: false, loading: false };
       e.nextAt = this.now() + COVERAGE_POLL_MS;
@@ -156,6 +169,10 @@ class CoveragePoller {
       e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : void 0, loading: false };
     } finally {
       e.inflight = false;
+      if (e.refreshPending) {
+        e.refreshPending = false;
+        e.nextAt = this.now();
+      }
     }
     this.notify(e);
   }
@@ -175,6 +192,12 @@ function useCoveragePoll(api, scope, from, poller = coveragePollerFor(api)) {
     if (!scope) return void 0;
     return poller.subscribe(scope, from, () => setVersion((v) => v + 1));
   }, [poller, scope, from]);
+  const updatedAt = scope ? poller.snapshot(scope, from).updatedAt : void 0;
+  useEffect(() => {
+    if (updatedAt === void 0) return void 0;
+    const id = setTimeout(() => setVersion((v) => v + 1), Math.max(0, updatedAt + COVERAGE_MAX_STALE_MS - Date.now()) + 1);
+    return () => clearTimeout(id);
+  }, [updatedAt]);
   const refresh = useCallback(() => {
     if (scope) poller.refresh(scope, from);
   }, [poller, scope, from]);
@@ -190,5 +213,5 @@ function useCoveragePoll(api, scope, from, poller = coveragePollerFor(api)) {
   };
 }
 
-export { COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll };
+export { COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll };
 //# sourceMappingURL=coveragePoll.esm.js.map
