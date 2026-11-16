@@ -29,6 +29,12 @@ export const COVERAGE_BACKOFF_CAP_MS = 120_000;
 export const COVERAGE_RETRY_AFTER_MAX_MS = 60 * 60_000;
 /** One read is abandoned after this long (a stalled request would hold the only poll slot); it counts as a busy failure. */
 export const COVERAGE_REQUEST_MS = 30_000;
+/**
+ * After a read is abandoned (its deadline passed, or its page left), the slot stays held this long. Aborting the
+ * browser's request does not reach Clearance through Backstage's proxy, which ends its own upstream read at 10 s
+ * (DEFAULT_TIMEOUT_MS in the clearance backend's proxy.ts), so the work can run that long after the abort.
+ */
+export const COVERAGE_ABORT_GRACE_MS = 10_000;
 /** Reads in flight at once, across every scope on the page. The server admits 2 per replica for everyone. */
 export const COVERAGE_CONCURRENCY = 1;
 /** Of a retry delay, at most this fraction is added at random so several people's pages do not retry in step. */
@@ -62,6 +68,10 @@ interface Entry {
   queued: boolean;
   /** A refresh was asked for while a read was out: read again as soon as it settles. */
   refreshPending: boolean;
+  /** Aborts the read in flight. */
+  abort?: AbortController;
+  /** The read in flight was aborted because nobody shows this scope any more. */
+  cancelled: boolean;
 }
 
 export interface CoveragePollerOptions {
@@ -85,14 +95,6 @@ const statusOf = (e: unknown): number | undefined => {
   const v = e && typeof e === 'object' ? (e as { status?: unknown }).status : undefined;
   return typeof v === 'number' ? v : undefined;
 };
-
-function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('coverage read timed out')), ms);
-  });
-  return Promise.race([p, expired]).finally(() => clearTimeout(timer));
-}
 
 /** The shared poller for one transport: entries by (scope, from), one reader at a time, one timer. */
 export class CoveragePoller {
@@ -119,7 +121,7 @@ export class CoveragePoller {
     let e = this.entries.get(k);
     if (!e) {
       this.prune();
-      e = { scope, from, snap: { busy: false, loading: true }, subscribers: new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false };
+      e = { scope, from, snap: { busy: false, loading: true }, subscribers: new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false, cancelled: false };
       this.entries.set(k, e);
     }
     const first = e.subscribers.size === 0;
@@ -141,6 +143,10 @@ export class CoveragePoller {
         e!.nextAt = Number.POSITIVE_INFINITY;
         e!.queued = false;
         this.queue = this.queue.filter(q => q !== e);
+        if (e!.inflight && e!.abort) {
+          e!.cancelled = true;
+          e!.abort.abort();
+        }
         if (![...this.entries.values()].some(x => x.subscribers.size > 0)) this.unlisten();
       }
     };
@@ -235,25 +241,56 @@ export class CoveragePoller {
     e.inflight = true;
     e.snap = { ...e.snap, loading: true };
     this.notify(e);
+    const ac = new AbortController();
+    e.abort = ac;
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const data = await withDeadline(this.api.get<CoverageStatement>('/v1/coverage', { scope: e.scope, from: e.from }), COVERAGE_REQUEST_MS);
+      const req = this.api.get<CoverageStatement>('/v1/coverage', { scope: e.scope, from: e.from }, { signal: ac.signal });
+      req.catch(() => {}); // an abandoned request that fails later is not an unhandled rejection
+      const expired = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          ac.abort(); // tell the host to drop the request; the slot is still held below until the server side is done
+          reject(new Error('coverage read timed out'));
+        }, COVERAGE_REQUEST_MS);
+      });
+      const data = await Promise.race([req, expired]);
+      // A success with no statement in it (an empty body) is a failed read, never data to show.
+      if (data === null || typeof data !== 'object') throw new Error('coverage read returned no statement');
       e.failures = 0;
       e.snap = { data, updatedAt: this.now(), busy: false, loading: false };
       e.nextAt = this.now() + COVERAGE_POLL_MS;
     } catch (err) {
-      e.failures++;
-      const status = statusOf(err);
-      const busy = status === undefined || isBusyStatus(status); // no status: the request itself failed or timed out
-      // A refusal (401/403/404...) will not clear by asking again soon: it waits for the next ordinary poll.
-      const delay = busy ? retryDelayMs(e.failures, retryAfterOf(err)) * (1 + JITTER * this.random()) : COVERAGE_POLL_MS;
-      e.nextAt = this.now() + delay;
-      e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : undefined, loading: false };
-    } finally {
-      e.inflight = false;
-      if (e.refreshPending) {
-        e.refreshPending = false;
-        e.nextAt = this.now();
+      if (e.cancelled) {
+        // Everyone left and the read was aborted: not a failure of the scope, nothing to show.
+        e.snap = { ...e.snap, loading: false };
+      } else {
+        e.failures++;
+        const status = statusOf(err);
+        const busy = status === undefined || isBusyStatus(status); // no status: the request itself failed, timed out or was aborted
+        // A refusal (401/403/404...) will not clear by asking again soon: it waits for the next ordinary poll.
+        const delay = busy ? retryDelayMs(e.failures, retryAfterOf(err)) * (1 + JITTER * this.random()) : COVERAGE_POLL_MS;
+        e.nextAt = this.now() + delay;
+        e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : undefined, loading: false };
       }
+    } finally {
+      clearTimeout(timer);
+    }
+    if (timedOut) this.notify(e);
+    // Aborting the browser's request does not stop the work upstream: Backstage's proxy does not pass the abort on, so
+    // Clearance keeps computing until the proxy's own 10 s limit. Hold the slot for that long, so a page never has a
+    // second coverage computation running behind an abandoned one.
+    if (timedOut || e.cancelled) await new Promise<void>(resolve => setTimeout(resolve, COVERAGE_ABORT_GRACE_MS));
+    e.inflight = false;
+    e.abort = undefined;
+    if (e.cancelled) {
+      e.cancelled = false;
+      if (e.subscribers.size > 0) e.nextAt = this.now(); // someone came back while it was being abandoned
+    }
+    if (e.refreshPending) {
+      e.refreshPending = false;
+      e.nextAt = this.now();
     }
     this.notify(e);
   }

@@ -35,9 +35,14 @@ export function parseRetryAfter(value: string | null | undefined, now: number = 
   return Number.isNaN(at) ? undefined : Math.max(0, at - now);
 }
 
+/** Options of a read. `signal` aborts the request (a host that cannot cancel may ignore it). */
+export interface ReadOptions {
+  signal?: AbortSignal;
+}
+
 export interface ClearanceTransport {
   /** GET `path` and parse the JSON answer. Undefined and empty query values are left out. Throws TransportError when not ok. */
-  get<T>(path: string, query?: Query): Promise<T>;
+  get<T>(path: string, query?: Query, opts?: ReadOptions): Promise<T>;
   /** GET `path` and return the body exactly as served: nothing is re-encoded (the attestation bundle). */
   getText(path: string): Promise<string>;
   /** POST `body` as JSON (the JSON content type is set when there is a body); `headers` are added. */

@@ -13,7 +13,7 @@ export { ReadError, useClearanceRead } from './kit/read.esm.js';
 export { BULK_RESOLUTION_LIMIT, ControlError, useClearanceWrite } from './kit/write.esm.js';
 export { ProductMark } from './kit/ProductMark.esm.js';
 export { CoverageBanner, CoverageStrip, healthTone, readDeniedText, statusOf, summarizeCoverage, useCoverage, useScopes } from './kit/coverage.esm.js';
-export { COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll } from './kit/coveragePoll.esm.js';
+export { COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll } from './kit/coveragePoll.esm.js';
 export { DEFAULT_PAGE_SIZE, PAGE_SIZES, Pager, pageSlice } from './kit/Pager.esm.js';
 export { BASELINE_POLICY, NOT_TIERED, TIER_FLOOR_NOTE, TierBadge, TierFilter, TierKey, TierMix, tierCountsOf, tierDefs, tierWhy, useTierPolicy } from './kit/tiers.esm.js';
 export { ExpandRow, useOneOpen } from './kit/ExpandRow.esm.js';

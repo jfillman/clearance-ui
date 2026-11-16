@@ -16,9 +16,9 @@ function readFor(transport) {
   let read = reads.get(transport);
   if (!read) {
     read = {
-      async get(path, params) {
+      async get(path, params, opts) {
         try {
-          return await transport.get(path, params);
+          return await transport.get(path, params, opts);
         } catch (e) {
           if (e instanceof TransportError) throw new ReadError(e.body?.error ?? `${path} failed with ${e.status}`, e.status, e.retryAfterMs);
           throw e;
