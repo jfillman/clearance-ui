@@ -18,10 +18,21 @@ export class TransportError extends Error {
     readonly status: number,
     readonly body?: any,
     readonly text?: string,
+    /** The answer's `Retry-After` in ms, when the host's transport can see response headers (a busy server sends it with 503/429). */
+    readonly retryAfterMs?: number,
   ) {
     super(`${path} failed with ${status}`);
     this.name = 'TransportError';
   }
+}
+
+/** `Retry-After` is whole seconds or an HTTP date; answers the wait in ms, or undefined when absent or unreadable. */
+export function parseRetryAfter(value: string | null | undefined, now: number = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const v = value.trim();
+  if (/^\d+$/.test(v)) return Number(v) * 1000;
+  const at = Date.parse(v);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - now);
 }
 
 export interface ClearanceTransport {

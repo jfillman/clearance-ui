@@ -1,10 +1,12 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
+import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, dateTime } from './format.esm.js';
 import { Callout, StatusChip, Tooltip, Count } from './kit.esm.js';
 import { useMountedNow } from './now.esm.js';
 import { useClearanceRead } from './read.esm.js';
 import { tokensForTheme, fontScale, fontMono } from './tokens.esm.js';
+import { useCoveragePoll } from './coveragePoll.esm.js';
 import { usePoll } from './usePoll.esm.js';
 
 const healthTone = (s) => {
@@ -46,10 +48,35 @@ function readDeniedText(e) {
   if (statusOf(e) === 503) return "Clearance is not reachable from here (503): clearance.apiUrl is unset or Clearance did not answer.";
   return e instanceof Error ? e.message : String(e);
 }
-function CoverageBanner({ scope, statement, error, now }) {
+const waitText = (ms) => ms < 6e4 ? `${Math.max(1, Math.ceil(ms / 1e3))} s` : `${Math.ceil(ms / 6e4)} min`;
+function useTicking(on) {
+  const [t, setT] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return void 0;
+    setT(Date.now());
+    const id = setInterval(() => setT(Date.now()), 1e3);
+    return () => clearInterval(id);
+  }, [on]);
+  return t;
+}
+function BusyBanner({ scope, retry }) {
+  const c = useStyles();
+  return /* @__PURE__ */ jsxs(Callout, { tone: "neutral", role: "region", "aria-label": `Coverage of ${scope}`, "data-state": "computing", title: /* @__PURE__ */ jsxs("span", { className: c.top, children: [
+    scope,
+    " ",
+    /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "computing\u2026" })
+  ] }), children: [
+    "Coverage is being computed.",
+    retry
+  ] });
+}
+function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSince }) {
   const c = useStyles();
   const at = useMountedNow(now);
+  const nowMs = useTicking(retryAt !== void 0 || staleSince !== void 0);
+  const retry = retryAt === void 0 ? "" : ` Retrying in ${waitText(retryAt - nowMs)}.`;
   if (!statement) {
+    if (busy) return /* @__PURE__ */ jsx(BusyBanner, { scope, retry });
     return /* @__PURE__ */ jsx(Callout, { tone: "neutral", role: "region", "aria-label": `Coverage of ${scope}`, "data-state": error ? "unavailable" : "loading", title: /* @__PURE__ */ jsxs("span", { className: c.top, children: [
       scope,
       " ",
@@ -81,6 +108,12 @@ function CoverageBanner({ scope, statement, error, now }) {
           " seen, not cleared \xB7 ",
           statement.cleared_and_verified.count,
           " cleared and verified"
+        ] }),
+        staleSince !== void 0 && /* @__PURE__ */ jsxs(Count, { children: [
+          "read ",
+          relativeTime(new Date(staleSince).toISOString(), nowMs),
+          " ago; Clearance did not answer the latest try.",
+          retry
         ] })
       ] }),
       children: [
@@ -97,12 +130,12 @@ function useScopes() {
   return usePoll("scopes", () => api.get("/scopes"), 0);
 }
 function useCoverage(api, scope, from) {
-  return usePoll(`coverage:${scope ?? ""}:${from ?? ""}`, async () => scope ? api.get("/v1/coverage", { scope, from }) : void 0, 6e4);
+  return useCoveragePoll(api, scope, from);
 }
 function ScopeBanner({ scope }) {
   const api = useClearanceRead();
   const cov = useCoverage(api, scope);
-  return /* @__PURE__ */ jsx(CoverageBanner, { scope, statement: cov.data, error: cov.data ? void 0 : cov.failure });
+  return /* @__PURE__ */ jsx(CoverageBanner, { scope, statement: cov.data, error: cov.error, busy: cov.busy, retryAt: cov.retryAt, staleSince: cov.stale ? cov.updatedAt : void 0 });
 }
 function CoverageStrip({ only }) {
   const c = useStyles();

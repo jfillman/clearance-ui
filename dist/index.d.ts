@@ -1079,8 +1079,14 @@ declare class TransportError extends Error {
     readonly status: number;
     readonly body?: any | undefined;
     readonly text?: string | undefined;
-    constructor(path: string, status: number, body?: any | undefined, text?: string | undefined);
+    /** The answer's `Retry-After` in ms, when the host's transport can see response headers (a busy server sends it with 503/429). */
+    readonly retryAfterMs?: number | undefined;
+    constructor(path: string, status: number, body?: any | undefined, text?: string | undefined, 
+    /** The answer's `Retry-After` in ms, when the host's transport can see response headers (a busy server sends it with 503/429). */
+    retryAfterMs?: number | undefined);
 }
+/** `Retry-After` is whole seconds or an HTTP date; answers the wait in ms, or undefined when absent or unreadable. */
+declare function parseRetryAfter(value: string | null | undefined, now?: number): number | undefined;
 interface ClearanceTransport {
     /** GET `path` and parse the JSON answer. Undefined and empty query values are left out. Throws TransportError when not ok. */
     get<T>(path: string, query?: Query): Promise<T>;
@@ -1122,6 +1128,7 @@ interface FakeCall {
 type FakeAnswer = unknown | {
     refuse: number;
     body?: unknown;
+    retryAfterMs?: number;
 };
 interface FakeTransport extends ClearanceTransport {
     calls: FakeCall[];
@@ -1132,7 +1139,8 @@ type Params = Query;
 /** A read Clearance (or the proxy) refused or failed: `status` is the HTTP status, so a view can tell 403 from 503. */
 declare class ReadError extends Error {
     readonly status: number;
-    constructor(message: string, status: number);
+    readonly retryAfterMs?: number | undefined;
+    constructor(message: string, status: number, retryAfterMs?: number | undefined);
 }
 interface ClearanceRead {
     get<T>(path: string, params?: Params): Promise<T>;
@@ -1207,6 +1215,85 @@ declare function ProductMark({ product, size }: {
     size?: number;
 }): react.JSX.Element;
 
+/** How often a visible page re-reads a scope. */
+declare const COVERAGE_POLL_MS: number;
+/** Coming back to the tab (focus, visible) re-reads a scope whose answer is older than this. */
+declare const COVERAGE_REFOCUS_MS = 60000;
+/**
+ * How long a good answer keeps standing in for a failing one: three poll intervals, so two reads in a row can fail
+ * (a busy server, a slow proxy) and the banner still shows what it knew, with its age. Past it the data is too old
+ * to be called coverage and the banner says it is unavailable.
+ */
+declare const COVERAGE_MAX_STALE_MS: number;
+/** The first retry after a failure that sent no `Retry-After`; each further failure doubles it (the server's own hint is 5 s). */
+declare const COVERAGE_BACKOFF_BASE_MS = 5000;
+/** The longest wait between retries: a server that is struggling is asked at most every two minutes. */
+declare const COVERAGE_BACKOFF_CAP_MS = 120000;
+/** Reads in flight at once, across every scope on the page. The server admits 2 per replica for everyone. */
+declare const COVERAGE_CONCURRENCY = 1;
+/** Statuses where the server (or the proxy) is busy or timed out: worth saying "being computed" and retrying soon. */
+declare const isBusyStatus: (status: number | undefined) => boolean;
+interface CoverageSnapshot {
+    data?: CoverageStatement;
+    /** When `data` was read (ms since the epoch). */
+    updatedAt?: number;
+    /** The last read's failure, as thrown; cleared by the next good read. */
+    failure?: unknown;
+    /** The last failure was the server being busy or timing out, not a refusal. */
+    busy: boolean;
+    /** When the next retry is due after a failure (ms since the epoch). */
+    retryAt?: number;
+    loading: boolean;
+}
+interface CoveragePollerOptions {
+    now?: () => number;
+    /** 0 to 1: added to a retry delay (a test passes 0). */
+    random?: () => number;
+    isHidden?: () => boolean;
+}
+/** The retry delay a failure asks for, in ms: `Retry-After` when sent (bounded), else exponential back-off; both capped. */
+declare function retryDelayMs(failures: number, retryAfterMs?: number): number;
+/** The shared poller for one transport: entries by (scope, from), one reader at a time, one timer. */
+declare class CoveragePoller {
+    private readonly api;
+    private entries;
+    private queue;
+    private running;
+    private timer;
+    private listening;
+    private readonly now;
+    private readonly random;
+    private readonly isHidden;
+    constructor(api: ClearanceRead, opts?: CoveragePollerOptions);
+    private key;
+    /** Starts (or joins) the poll of a scope; the callback runs on every change. Returns the way to stop listening. */
+    subscribe(scope: string, from: string | undefined, onChange: () => void): () => void;
+    snapshot(scope: string, from?: string): CoverageSnapshot;
+    /** Reads this scope as soon as the queue allows (after a write that changed what it says). */
+    refresh(scope: string, from?: string): void;
+    private notify;
+    /** Drops entries nobody shows whose answer is too old to stand in for anything. */
+    private prune;
+    private onVisible;
+    private listen;
+    private unlisten;
+    /** Queues what is due and arms one timer for what is due next. Nothing is read while the tab is hidden. */
+    private schedule;
+    private pump;
+    private read;
+}
+/** The poller shared by everything reading through this `api` (one per transport: `useClearanceRead` is memoised). */
+declare function coveragePollerFor(api: ClearanceRead): CoveragePoller;
+interface CoverageRead extends CoverageSnapshot {
+    /** The failure to show: only when there is no good answer, or the good answer is older than COVERAGE_MAX_STALE_MS. */
+    error?: unknown;
+    /** `data` is older than the last try: the last read failed and `data` is what was known before. */
+    stale: boolean;
+    refresh: () => void;
+}
+/** The coverage statement of one scope (the last day unless `from` says otherwise), shared with every other reader of it. */
+declare function useCoveragePoll(api: ClearanceRead, scope: string | undefined, from?: string, poller?: CoveragePoller): CoverageRead;
+
 declare const healthTone: (s: CoverageHealth | string) => StatusTone;
 interface BannerSummary {
     state: CoverageHealth;
@@ -1221,16 +1308,26 @@ declare function summarizeCoverage(st: CoverageStatement): BannerSummary;
 /** Why a coverage read failed, in words. 403 is the Clearance release that opens these reads to people (owner decision O-5). */
 declare const statusOf: (e: unknown) => number | undefined;
 declare function readDeniedText(e: unknown): string;
-declare function CoverageBanner({ scope, statement, error, now }: {
+interface CoverageBannerProps {
     scope: string;
     statement?: CoverageStatement;
     error?: unknown;
     now?: number;
-}): react.JSX.Element;
+    /** The server is busy or timed out and there is no answer yet: say it is being computed, not that it is unavailable. */
+    busy?: boolean;
+    /** When the next try is due (ms since the epoch). */
+    retryAt?: number;
+    /** When `statement` was read, when the last try failed and this is what was known before it. */
+    staleSince?: number;
+}
+declare function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSince }: CoverageBannerProps): react.JSX.Element;
 /** Reads the scope list (the backend's GET /scopes) once. */
 declare function useScopes(): Polled<ScopeList>;
-/** The coverage statement of one scope, refreshed every minute (the last day unless `from` says otherwise). */
-declare function useCoverage(api: ClearanceRead, scope: string | undefined, from?: string): Polled<CoverageStatement | undefined>;
+/**
+ * The coverage statement of one scope (the last day unless `from` says otherwise), read by the shared poller: one
+ * request per (scope, from) however many components show it, one scope at a time, every 5 minutes, with back-off.
+ */
+declare function useCoverage(api: ClearanceRead, scope: string | undefined, from?: string): CoverageRead;
 /** A banner for each scope Clearance names (or `only`, to show one app's). Nothing when there is no scope to show. */
 declare function CoverageStrip({ only }: {
     only?: string[];
@@ -1405,5 +1502,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isWorkload, outcomeLabel, pageSlice, preventFocusScroll, ratio, readDeniedText, relativeTime, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
-export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageHealth, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
+export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageBannerProps, CoverageHealth, CoveragePollerOptions, CoverageRead, CoverageSnapshot, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };

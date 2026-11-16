@@ -1,4 +1,4 @@
-import { TransportError, type ClearanceTransport, type Query } from './transport';
+import { TransportError, parseRetryAfter, type ClearanceTransport, type Query } from './transport';
 
 // A ClearanceTransport over any fetch-shaped function: the host-agnostic transport. The standalone shell
 // (app/src/transport.ts) builds it on same-origin fetch to `clearance web`; tests build it on a mock. A host that has
@@ -20,7 +20,7 @@ export function createFetchTransport({ fetch, url }: FetchTransportOptions): Cle
       const qs = q.toString();
       const res = await fetch(`${await url(path, 'read')}${qs ? `?${qs}` : ''}`);
       const body = await res.json().catch(() => undefined);
-      if (!res.ok) throw new TransportError(path, res.status, body);
+      if (!res.ok) throw new TransportError(path, res.status, body, undefined, parseRetryAfter(res.headers?.get('Retry-After')));
       return body as T;
     },
     async getText(path: string): Promise<string> {

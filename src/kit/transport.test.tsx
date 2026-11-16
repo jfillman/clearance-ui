@@ -50,3 +50,10 @@ it('writes go out as POST or DELETE and a refusal is a ControlError with its rul
     { method: 'POST', path: '/v1/sessions/s%201/freeze', body: { reason: 'why' }, headers: undefined },
   ]);
 });
+
+it('every component of a host gets the same read object (what the shared coverage poller keys on)', () => {
+  const t = createFakeTransport(() => ({}));
+  const a = renderHook(() => useClearanceRead(), { wrapper: wrap(t) });
+  const b = renderHook(() => useClearanceRead(), { wrapper: wrap(t) });
+  expect(a.result.current).toBe(b.result.current);
+});

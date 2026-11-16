@@ -6,7 +6,7 @@ function createFakeTransport(answer) {
     calls.push(call);
     const a = await answer(call);
     if (a === void 0) throw new TransportError(call.path, 404, { error: `no ${call.path}` });
-    if (a && typeof a === "object" && typeof a.refuse === "number") throw new TransportError(call.path, a.refuse, a.body ?? {});
+    if (a && typeof a === "object" && typeof a.refuse === "number") throw new TransportError(call.path, a.refuse, a.body ?? {}, void 0, a.retryAfterMs);
     return a;
   }
   return {

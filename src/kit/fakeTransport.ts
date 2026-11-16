@@ -12,7 +12,7 @@ export interface FakeCall {
 }
 
 /** What answers a call: the JSON (or text) to serve, `undefined` for not found, or a TransportError-shaped refusal. */
-export type FakeAnswer = unknown | { refuse: number; body?: unknown };
+export type FakeAnswer = unknown | { refuse: number; body?: unknown; retryAfterMs?: number };
 
 export interface FakeTransport extends ClearanceTransport {
   calls: FakeCall[];
@@ -24,7 +24,7 @@ export function createFakeTransport(answer: (call: FakeCall) => FakeAnswer | Pro
     calls.push(call);
     const a = (await answer(call)) as any;
     if (a === undefined) throw new TransportError(call.path, 404, { error: `no ${call.path}` });
-    if (a && typeof a === 'object' && typeof a.refuse === 'number') throw new TransportError(call.path, a.refuse, a.body ?? {});
+    if (a && typeof a === 'object' && typeof a.refuse === 'number') throw new TransportError(call.path, a.refuse, a.body ?? {}, undefined, a.retryAfterMs);
     return a as T;
   }
   return {

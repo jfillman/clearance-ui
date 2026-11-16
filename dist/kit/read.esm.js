@@ -2,22 +2,25 @@ import { useMemo } from 'react';
 import { useClearanceTransport, TransportError } from './transport.esm.js';
 
 class ReadError extends Error {
-  constructor(message, status) {
+  constructor(message, status, retryAfterMs) {
     super(message);
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
     this.name = "ReadError";
   }
   status;
+  retryAfterMs;
 }
-function useClearanceRead() {
-  const transport = useClearanceTransport();
-  return useMemo(
-    () => ({
+const reads = /* @__PURE__ */ new WeakMap();
+function readFor(transport) {
+  let read = reads.get(transport);
+  if (!read) {
+    read = {
       async get(path, params) {
         try {
           return await transport.get(path, params);
         } catch (e) {
-          if (e instanceof TransportError) throw new ReadError(e.body?.error ?? `${path} failed with ${e.status}`, e.status);
+          if (e instanceof TransportError) throw new ReadError(e.body?.error ?? `${path} failed with ${e.status}`, e.status, e.retryAfterMs);
           throw e;
         }
       },
@@ -36,9 +39,14 @@ function useClearanceRead() {
           throw e;
         }
       }
-    }),
-    [transport]
-  );
+    };
+    reads.set(transport, read);
+  }
+  return read;
+}
+function useClearanceRead() {
+  const transport = useClearanceTransport();
+  return useMemo(() => readFor(transport), [transport]);
 }
 
 export { ReadError, useClearanceRead };

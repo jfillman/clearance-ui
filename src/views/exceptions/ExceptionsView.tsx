@@ -692,7 +692,7 @@ export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; i
   });
   const pickedRows = [...picked].map(k => byKey.get(k)).filter((r): r is Row => !!r);
 
-  const readError = scopes.failure ?? (cov.data ? undefined : cov.failure) ?? (obs.data ? undefined : obs.failure);
+  const readError = scopes.failure ?? (cov.busy ? undefined : cov.error) ?? (obs.data ? undefined : obs.failure);
   const denied = statusOf(readError) === 403;
 
   const filterEnd = (
@@ -721,7 +721,7 @@ export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; i
       )}
       {readError !== undefined && <TabError error={new Error(readDeniedText(readError))} what="exceptions" />}
 
-      {active && <CoverageBanner scope={active} statement={cov.data} error={cov.data ? undefined : cov.failure} now={now} />}
+      {active && <CoverageBanner scope={active} statement={cov.data} error={cov.error} busy={cov.busy} retryAt={cov.retryAt} staleSince={cov.stale ? cov.updatedAt : undefined} now={now} />}
 
       <div className={`${c.notice} ${fading ? c.noticeFading : ''}`} role="status" aria-live="polite" style={notice ? undefined : { position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}>
         {notice && <Callout tone="ok" role="presentation">{notice}</Callout>}
