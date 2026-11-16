@@ -240,7 +240,8 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
     if (!isHeader || !e.owner.open || e.owner.drawn.length === 0 || e.owner.hidden > 0) return true;
     return !rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`);
   });
-  const aggregateOf = new Set(usable.filter(e => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0).map(e => e.index));
+  // labelled as the hidden rows' aggregate only when it is kept beside row edges (otherwise it is the group's only line)
+  const aggregateOf = new Set(usable.filter(e => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0 && rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`)).map(e => e.index));
   const inCount = new Map<string, number>();
   const outCount = new Map<string, number>();
   const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);

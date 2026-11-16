@@ -73,6 +73,16 @@ describe('the Map layout model', () => {
     expect(topo.edges.filter(e => e.edge.to.startsWith('target:'))).toHaveLength(ROW_CAP);
   });
 
+  it('a header edge with no row edge beside it is not labelled as a hidden-rows aggregate', () => {
+    const many = Array.from({ length: ROW_CAP + 5 }, (_, i) => target(`t${i}-prod`, 'hangar-prod'));
+    const m = fixture();
+    m.nodes.targets = many;
+    m.edges = [{ from: 'gate:g-argo', to: 'group:hangar-prod', kind: 'guards', targets: many.length, volume: 50, refused: 0, holding: 0, status: 'ok' }];
+    const topo = buildTopology(m, NO_FILTERS, ['hangar-prod']);
+    expect(topo.edges).toHaveLength(1);
+    expect(topo.edges[0].aggregate).toBeUndefined();
+  });
+
   it('caps the rows of a big group and says how many are hidden', () => {
     const many = Array.from({ length: ROW_CAP + 5 }, (_, i) => target(`t${i}-prod`, 'hangar-prod'));
     const m = fixture();

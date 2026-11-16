@@ -85,7 +85,7 @@ function buildTopology(map, filters, expanded) {
     if (!isHeader || !e.owner.open || e.owner.drawn.length === 0 || e.owner.hidden > 0) return true;
     return !rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`);
   });
-  const aggregateOf = new Set(usable.filter((e) => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0).map((e) => e.index));
+  const aggregateOf = new Set(usable.filter((e) => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0 && rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`)).map((e) => e.index));
   const inCount = /* @__PURE__ */ new Map();
   const outCount = /* @__PURE__ */ new Map();
   const bump = (m, k) => m.set(k, (m.get(k) ?? 0) + 1);
