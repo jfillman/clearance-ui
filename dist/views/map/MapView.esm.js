@@ -63,7 +63,8 @@ function EmptyRegistry({ map }) {
 }
 function AttentionPanel({ items, targets, onOpenTarget, onShow }) {
   const c = useMapStyles();
-  return /* @__PURE__ */ jsx(Section, { framed: true, title: "Needs attention", count: items.length, "aria-label": "Needs attention", children: items.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy." }) : /* @__PURE__ */ jsx("ul", { className: c.attnList, children: groupAttention(items, targets).map((a, i) => {
+  const rows = groupAttention(items, targets);
+  return /* @__PURE__ */ jsx(Section, { framed: true, title: "Needs attention", count: rows.length, "aria-label": "Needs attention", children: rows.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy." }) : /* @__PURE__ */ jsx("ul", { className: c.attnList, children: rows.map((a, i) => {
     const one = soleTarget(a, targets);
     const groups = groupsOf(a, targets);
     let action = null;

@@ -249,6 +249,15 @@ describe('the same alert for several targets is one row', () => {
     expect(rows[1].kind).toBe('flag-mode');
   });
 
+  it('a merged title that opens with a count takes the summed count, not the first item\'s', () => {
+    const m = fixture();
+    const hold = (t: string) => ({ kind: 'holding', severity: 'attention' as const, title: '1 change waiting on a person', detail: 'tier 2', count: 1, targets: [t] });
+    const rows = groupAttention([hold('gate-api-prod'), hold('flight-api-prod')], m.nodes.targets);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].title).toBe('2 change waiting on a person');
+    expect(rows[0].count).toBe(2);
+  });
+
   it('leaves a lone item as it is and does not merge items with different wording', () => {
     const m = fixture();
     const one = groupAttention([blind('acct-prod')], m.nodes.targets);

@@ -272,7 +272,7 @@ function groupAttention(items, targets) {
   const rows = /* @__PURE__ */ new Map();
   const out = [];
   for (const it of items) {
-    const title = strip(it.title, it.targets);
+    const title = strip(it.title, it.targets).replace(new RegExp(`^${it.count}(?= )`), "[[count]]");
     const detail = strip(it.detail, it.targets);
     const key = it.targets.length === 0 ? `\0${out.length}` : [it.kind, it.severity, it.gate_type ?? "", it.instance ?? "", title, detail].join("");
     const seen = rows.get(key);
@@ -286,7 +286,7 @@ function groupAttention(items, targets) {
     seen.row.count += it.count;
     seen.row.targets = [.../* @__PURE__ */ new Set([...seen.row.targets, ...it.targets])];
     seen.row.names = seen.row.targets.map(nameOf);
-    seen.row.title = seen.title.split("[[target]]").join(plural(seen.row.targets.length, "target"));
+    seen.row.title = seen.title.split("[[target]]").join(plural(seen.row.targets.length, "target")).split("[[count]]").join(String(seen.row.count));
     seen.row.detail = seen.detail.split("[[target]]").join(plural(seen.row.targets.length, "target"));
   }
   return out;

@@ -464,7 +464,8 @@ export function groupAttention(items: AttentionItem[], targets: TargetNode[]): A
   const rows = new Map<string, { row: AttentionRow; n: number; title: string; detail: string }>();
   const out: AttentionRow[] = [];
   for (const it of items) {
-    const title = strip(it.title, it.targets);
+    // a title that opens with its own count ("1 change waiting on a person") must not keep the first item's number once merged
+    const title = strip(it.title, it.targets).replace(new RegExp(`^${it.count}(?= )`), '[[count]]');
     const detail = strip(it.detail, it.targets);
     const key = it.targets.length === 0 ? `\u0000${out.length}` : [it.kind, it.severity, it.gate_type ?? '', it.instance ?? '', title, detail].join('\u0001');
     const seen = rows.get(key);
@@ -478,7 +479,7 @@ export function groupAttention(items: AttentionItem[], targets: TargetNode[]): A
     seen.row.count += it.count;
     seen.row.targets = [...new Set([...seen.row.targets, ...it.targets])];
     seen.row.names = seen.row.targets.map(nameOf);
-    seen.row.title = seen.title.split('[[target]]').join(plural(seen.row.targets.length, 'target'));
+    seen.row.title = seen.title.split('[[target]]').join(plural(seen.row.targets.length, 'target')).split('[[count]]').join(String(seen.row.count));
     seen.row.detail = seen.detail.split('[[target]]').join(plural(seen.row.targets.length, 'target'));
   }
   return out;

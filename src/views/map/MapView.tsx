@@ -98,13 +98,14 @@ export function EmptyRegistry({ map }: { map?: MapResponse }) {
 
 function AttentionPanel({ items, targets, onOpenTarget, onShow }: { items: AttentionItem[]; targets: TargetNode[]; onOpenTarget: (id: string) => void; onShow: (groups: string[]) => void }) {
   const c = useMapStyles();
+  const rows = groupAttention(items, targets);
   return (
-    <Section framed title="Needs attention" count={items.length} aria-label="Needs attention">
-      {items.length === 0 ? (
+    <Section framed title="Needs attention" count={rows.length} aria-label="Needs attention">
+      {rows.length === 0 ? (
         <EmptyNote inset>Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy.</EmptyNote>
       ) : (
         <ul className={c.attnList}>
-          {groupAttention(items, targets).map((a, i) => {
+          {rows.map((a, i) => {
             const one = soleTarget(a, targets);
             const groups = groupsOf(a, targets);
             let action: ReactNode = null;
