@@ -1,7 +1,7 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { relativeTime, dateTime } from '../../kit/format.esm.js';
+import { relativeTime, whenTitle } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
 import { useTableKit, StatRow, Card, Stat, Section, FilterBar, FilterSelect, FilterChips, SearchField, Callout, TabError, PanelSkeleton, EmptyNote, Tooltip, Button } from '../../kit/kit.esm.js';
@@ -148,7 +148,7 @@ function AttestationsView({ now: nowProp, onOpenChange, initial }) {
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.change_id }) }),
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.release_id ?? "\u2014" }) }),
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: r.tree_digest, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: shortDigest(r.tree_digest) }) }) }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: dateTime(r.signed_at), children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
+            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(r.signed_at), children: /* @__PURE__ */ jsxs("span", { className: tk.meta, children: [
               relativeTime(r.signed_at, now),
               " ago"
             ] }) }) }),

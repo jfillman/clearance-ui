@@ -17,6 +17,7 @@ import {
   StatusChip,
   TabError,
   TextLink,
+  Time,
   useClearanceRead,
   usePoll,
   type StatusTone,
@@ -276,7 +277,7 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
       {body}
       {!empty && (
         <Hint>
-          {data.registry.targets} declared targets from {data.registry.sources.length} {data.registry.sources.length === 1 ? 'source' : 'sources'} · {instances} gate instances · window {data.from.slice(0, 16).replace('T', ' ')} to {data.to.slice(11, 16)} UTC.
+          {data.registry.targets} declared targets from {data.registry.sources.length} {data.registry.sources.length === 1 ? 'source' : 'sources'} · {instances} gate instances · window <Time iso={data.from} format="short" /> to <Time iso={data.to} format="short" />.
         </Hint>
       )}
     </>

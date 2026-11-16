@@ -5,7 +5,7 @@ import {
   Button,
   Callout,
   Card,
-  dateTime,
+  whenTitle,
   DEFAULT_PAGE_SIZE,
   EmptyNote,
   ExpandRow,
@@ -180,7 +180,7 @@ export function AttestationsView({ now: nowProp, onOpenChange, initial }: { now?
                       <td className={tk.td}><span className={tk.meta}>{r.change_id}</span></td>
                       <td className={tk.td}><span className={tk.meta}>{r.release_id ?? '—'}</span></td>
                       <td className={tk.td}><Tooltip title={r.tree_digest}><span className={tk.meta}>{shortDigest(r.tree_digest)}</span></Tooltip></td>
-                      <td className={tk.td}><Tooltip title={dateTime(r.signed_at)}><span className={tk.meta}>{relativeTime(r.signed_at, now)} ago</span></Tooltip></td>
+                      <td className={tk.td}><Tooltip title={whenTitle(r.signed_at)}><span className={tk.meta}>{relativeTime(r.signed_at, now)} ago</span></Tooltip></td>
                       <td className={tk.td} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
                         {r.rekor_log_index === null ? <span className={tk.meta}>not logged</span> : <RekorIndex index={r.rekor_log_index} url={url} />}
                       </td>

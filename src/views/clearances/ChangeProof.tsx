@@ -6,6 +6,9 @@ import {
   Callout,
   Chip,
   dateTime,
+  Time,
+  utcDateTime,
+  whenTitle,
   EmptyNote,
   Fact,
   FactGrid,
@@ -104,8 +107,8 @@ export function verifyDisplay(args: { verifiable: boolean | undefined; answer?: 
 }
 
 export function VerifyChip({ display }: { display: VerifyDisplay }) {
-  if (display.kind === 'verified') return <StatusChip tone="ok" title={`The server re-checked the signature at ${dateTime(display.at)}`}>verified</StatusChip>;
-  if (display.kind === 'failed') return <StatusChip tone="bad" title={`The server's check failed at ${dateTime(display.at)}`}>verification failed</StatusChip>;
+  if (display.kind === 'verified') return <StatusChip tone="ok" title={`The server re-checked the signature at ${whenTitle(display.at)}`}>verified</StatusChip>;
+  if (display.kind === 'failed') return <StatusChip tone="bad" title={`The server's check failed at ${whenTitle(display.at)}`}>verification failed</StatusChip>;
   return <StatusChip tone="neutral" title={display.note}>signed (recorded)</StatusChip>;
 }
 
@@ -168,10 +171,10 @@ export function recordDetail(item: ChangeRecordItem): string {
 }
 
 /** The pending step the history ends with, or undefined when nothing more is expected. */
-export function nextStep(change: Pick<Change, 'state' | 'outcome' | 'attestation' | 'expires_at'>): { title: string; detail: string } | undefined {
+export function nextStep(change: Pick<Change, 'state' | 'outcome' | 'attestation' | 'expires_at'>): { title: string; detail: string; at?: string } | undefined {
   switch (attestationState(change)) {
     case 'waiting-for-clear':
-      return { title: 'Holding for a person', detail: `Expires ${dateTime(change.expires_at)}.` };
+      return { title: 'Holding for a person', detail: `Expires ${dateTime(change.expires_at)}.`, at: change.expires_at };
     case 'waiting-for-outcome':
       return { title: 'Waiting for a deploy outcome', detail: 'The core signs after the first outcome that applied what was cleared.' };
     case 'not-yet-signed':
@@ -219,7 +222,7 @@ export function ChangeHistory({ change }: { change: Change }) {
             const detail = recordDetail(it);
             return (
               <li key={it.seq} className={c.event}>
-                <Tooltip title={dateTime(it.ts)}><span className={c.when}>{dateTime(it.ts).slice(5)}</span></Tooltip>
+                <span className={c.when}><Time iso={it.ts} format="short" /></span>
                 {glyph(i + 1, t.tone)}
                 <div className={c.what}>
                   <span><b className={c.code}>{it.tool}</b>{t.what && <> · {t.what}</>}</span>
@@ -242,7 +245,7 @@ export function ChangeHistory({ change }: { change: Change }) {
               <span className={`${c.glyph} ${c.glyphWait}`} aria-hidden>{items.length + 1}</span>
               <div className={c.what}>
                 <b>{pending.title}</b>
-                <span className={c.detail}>{pending.detail}</span>
+                <Tooltip title={pending.at ? utcDateTime(pending.at, true) : undefined}><span className={c.detail}>{pending.detail}</span></Tooltip>
               </div>
               <span />
             </li>
@@ -281,7 +284,7 @@ export function OutcomePanel({ change }: { change: Change }) {
           {o.exception !== undefined && o.exception !== null && <Chip tone="bad">exception seq {o.exception}</Chip>}
         </div>
         <FactGrid min={220}>
-          <Fact label="When">{dateTime(o.at)}</Fact>
+          <Fact label="When"><Time iso={o.at} /></Fact>
           {o.provider && <Fact label="Provider">{o.provider}</Fact>}
           {(o.digest || o.plan_digest) && <Fact label={o.plan_digest ? 'Plan digest' : 'Applied digest'}><span className={c.selectable}>{shortDigest(o.plan_digest ?? o.digest)}</span></Fact>}
           {o.release && <Fact label="Release"><span className={c.selectable}>{o.release}</span></Fact>}
@@ -353,7 +356,7 @@ export function AttestationPanel({ change }: { change: Change }) {
           {att.rekor_log_index !== null && <Chip>logged in Rekor</Chip>}
           <Chip>backend: {att.backend}</Chip>
         </div>
-        <span className={c.detail}>Signed {dateTime(att.created_at)}.{display.kind === 'verified' ? ` Re-checked by Clearance at ${dateTime(display.at)}${display.detail ? ` (${display.detail})` : ''}.` : ''}</span>
+        <span className={c.detail}>Signed <Time iso={att.created_at} />.{display.kind === 'verified' && <> Re-checked by Clearance at <Time iso={display.at} />{display.detail ? ` (${display.detail})` : ''}.</>}</span>
         {display.kind === 'recorded' && <Callout tone="info">{display.note}</Callout>}
         {display.kind === 'failed' && (
           <Callout tone="bad" title="The signature did not verify">
@@ -370,7 +373,7 @@ export function AttestationPanel({ change }: { change: Change }) {
           <Fact label="Attestation record">seq {att.record_seq.toLocaleString('en-US')}</Fact>
         </FactGrid>
         <Callout tone="info" label="What this proves">
-          Clearance cleared exactly this manifest tree ({shortDigest(change.tree_digest)}) under policy {change.policy_version}{change.repo_policy_digest ? ' and clearance.yaml' : ''}, and a deploy reported applying it, signed{att.rekor_log_index !== null ? ' and logged' : ''} at {dateTime(att.created_at)}. It does not prove what the cluster looks like now.
+          Clearance cleared exactly this manifest tree ({shortDigest(change.tree_digest)}) under policy {change.policy_version}{change.repo_policy_digest ? ' and clearance.yaml' : ''}, and a deploy reported applying it, signed{att.rekor_log_index !== null ? ' and logged' : ''} at <Time iso={att.created_at} />. It does not prove what the cluster looks like now.
         </Callout>
         {commands && (
           <div>

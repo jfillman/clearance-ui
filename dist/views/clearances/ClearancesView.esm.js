@@ -1,7 +1,7 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { shortPrincipal, dateTime, relativeTime } from '../../kit/format.esm.js';
+import { shortPrincipal, relativeTime, whenTitle } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
 import { useTableKit, useInputClass, Section, FactGrid, Fact, Button, Callout, Chip, StatusChip, StatRow, Card, Stat, FilterBar, FilterChips, TabError, PanelSkeleton, EmptyNote, Tooltip } from '../../kit/kit.esm.js';
@@ -14,6 +14,7 @@ import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import { useTierPolicy, tierDefs, tierWhy, TierBadge, tierCountsOf, TierMix, TierFilter, TierKey } from '../../kit/tiers.esm.js';
 import { useOneOpen, ExpandRow } from '../../kit/ExpandRow.esm.js';
+import { Time } from '../../kit/Time.esm.js';
 import { ChangeProof } from './ChangeProof.esm.js';
 
 const STATES = [
@@ -109,7 +110,16 @@ function ClearanceDetail({ change, onChanged }) {
               ")"
             ] }),
             /* @__PURE__ */ jsx(Fact, { label: "Needs", children: needsText(change) }),
-            /* @__PURE__ */ jsx(Fact, { label: "Approvals", children: change.approvals.length ? change.approvals.map((a) => `${shortPrincipal(a.person)} (${a.role}${a.via ? ", via Tower" : ""}, ${dateTime(a.at)})`).join("; ") : "none" }),
+            /* @__PURE__ */ jsx(Fact, { label: "Approvals", children: change.approvals.length ? change.approvals.map((a, i) => /* @__PURE__ */ jsxs("span", { children: [
+              i > 0 ? "; " : "",
+              shortPrincipal(a.person),
+              " (",
+              a.role,
+              a.via ? ", via Tower" : "",
+              ", ",
+              /* @__PURE__ */ jsx(Time, { iso: a.at }),
+              ")"
+            ] }, `${a.person}-${i}`)) : "none" }),
             change.deny_reason && /* @__PURE__ */ jsxs(Fact, { label: "Denied", children: [
               shortPrincipal(change.denied_by),
               ": ",
@@ -127,7 +137,7 @@ function ClearanceDetail({ change, onChanged }) {
               change.policy_version,
               change.repo_policy_digest ? " + clearance.yaml" : ""
             ] }),
-            /* @__PURE__ */ jsx(Fact, { label: "Expires", children: dateTime(change.expires_at) })
+            /* @__PURE__ */ jsx(Fact, { label: "Expires", children: /* @__PURE__ */ jsx(Time, { iso: change.expires_at }) })
           ] }),
           change.state === "holding" && /* @__PURE__ */ jsxs("div", { className: c.actions, children: [
             /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: busy, onClick: () => act(() => write.clearChange(change.id)), children: "Clear as you" }),
@@ -274,7 +284,7 @@ function ClearancesView({ app, initial, now: nowProp }) {
           ] }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: stateTone(ch.state), dot: ch.state === "holding", children: ch.state }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: ch.state === "holding" ? stillNeeds(ch) : ch.cleared_by ?? "" }) }),
-          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: dateTime(ch.updated_at), children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: relativeTime(ch.updated_at, now) }) }) })
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(ch.updated_at), children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: relativeTime(ch.updated_at, now) }) }) })
         ] }, ch.id)) })
       ] }) })
     ] })

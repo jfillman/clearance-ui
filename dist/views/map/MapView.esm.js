@@ -13,6 +13,7 @@ import '../../kit/Pager.esm.js';
 import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
+import { Time } from '../../kit/Time.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { MapMatrix } from './MapMatrix.esm.js';
 import { MapTopology, MapLegend } from './MapTopology.esm.js';
@@ -240,10 +241,10 @@ function MapView({ win, onWindow, onOpenTarget }) {
       " \xB7 ",
       instances,
       " gate instances \xB7 window ",
-      data.from.slice(0, 16).replace("T", " "),
+      /* @__PURE__ */ jsx(Time, { iso: data.from, format: "short" }),
       " to ",
-      data.to.slice(11, 16),
-      " UTC."
+      /* @__PURE__ */ jsx(Time, { iso: data.to, format: "short" }),
+      "."
     ] })
   ] });
 }

@@ -2,7 +2,8 @@ import { jsx, Fragment, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { DecisionChip, TierChip } from './components.esm.js';
 import { Chip } from './kit.esm.js';
-import { preventFocusScroll, clock } from './format.esm.js';
+import { preventFocusScroll } from './format.esm.js';
+import { Time } from './Time.esm.js';
 import { tokensForTheme, fontScale, fontMono } from './tokens.esm.js';
 
 const FLIGHT_LOG_MAX_HEIGHT = 480;
@@ -122,7 +123,7 @@ function FlightLog({ records, selected, onSelect, detail, empty, maxHeight = FLI
           "aria-expanded": onSelect && detail ? isOpen : void 0,
           "aria-controls": onSelect && detail && isOpen ? detailId : void 0,
           children: [
-            /* @__PURE__ */ jsx("span", { className: c.time, children: clock(r.ts) }),
+            /* @__PURE__ */ jsx("span", { className: c.time, children: /* @__PURE__ */ jsx(Time, { iso: r.ts, format: "clock" }) }),
             /* @__PURE__ */ jsx("span", { className: c.glyph, children: /* @__PURE__ */ jsx(Glyph, { r }) }),
             /* @__PURE__ */ jsxs("span", { className: c.what, children: [
               /* @__PURE__ */ jsx("b", { children: s.title }),

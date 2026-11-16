@@ -7,7 +7,8 @@ import {
   Callout,
   Chip,
   ControlError,
-  dateTime,
+  Time,
+  whenTitle,
   EmptyNote,
   ExpandRow,
   Fact,
@@ -139,11 +140,11 @@ export function ClearanceDetail({ change, onChanged }: { change: Change; onChang
           <Fact label="Why this tier">{tierDefs(policy)[change.tier]?.name ?? ''}: {tierWhy(change) || 'nothing above tier 0'}</Fact>
           <Fact label="Proposed by">{shortPrincipal(change.proposer)} ({change.proposer_kind}{change.agent ? `: ${change.agent}` : ''})</Fact>
           <Fact label="Needs">{needsText(change)}</Fact>
-          <Fact label="Approvals">{change.approvals.length ? change.approvals.map(a => `${shortPrincipal(a.person)} (${a.role}${a.via ? ', via Tower' : ''}, ${dateTime(a.at)})`).join('; ') : 'none'}</Fact>
+          <Fact label="Approvals">{change.approvals.length ? change.approvals.map((a, i) => <span key={`${a.person}-${i}`}>{i > 0 ? '; ' : ''}{shortPrincipal(a.person)} ({a.role}{a.via ? ', via Tower' : ''}, <Time iso={a.at} />)</span>) : 'none'}</Fact>
           {change.deny_reason && <Fact label="Denied">{shortPrincipal(change.denied_by)}: {change.deny_reason}</Fact>}
           <Fact label="Checks">{Object.entries(change.checks).map(([k, v]) => `${k} ${v}`).join(' · ')}</Fact>
           <Fact label="Binds to">head {change.head.slice(0, 12)} · tree {change.tree_digest.slice(0, 12)} · {change.objects.length} object(s) · policy {change.policy_version}{change.repo_policy_digest ? ' + clearance.yaml' : ''}</Fact>
-          <Fact label="Expires">{dateTime(change.expires_at)}</Fact>
+          <Fact label="Expires"><Time iso={change.expires_at} /></Fact>
         </FactGrid>
         {change.state === 'holding' && (
           <div className={c.actions}>
@@ -249,7 +250,7 @@ export function ClearancesView({ app, initial, now: nowProp }: { app?: string; i
                       <td className={tk.td}><TierBadge tier={ch.tier} change={ch} policy={policy}>T{ch.tier}</TierBadge></td>
                       <td className={tk.td}><StatusChip tone={stateTone(ch.state)} dot={ch.state === 'holding'}>{ch.state}</StatusChip></td>
                       <td className={tk.td}><span className={tk.meta}>{ch.state === 'holding' ? stillNeeds(ch) : ch.cleared_by ?? ''}</span></td>
-                      <td className={tk.td}><Tooltip title={dateTime(ch.updated_at)}><span className={tk.meta}>{relativeTime(ch.updated_at, now)}</span></Tooltip></td>
+                      <td className={tk.td}><Tooltip title={whenTitle(ch.updated_at)}><span className={tk.meta}>{relativeTime(ch.updated_at, now)}</span></Tooltip></td>
                     </ExpandRow>
                   ))}
                 </tbody>

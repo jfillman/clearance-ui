@@ -1,7 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { dateTime } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { Section, Chip, Callout, PanelSkeleton, FactGrid, Fact, YamlBlock, Button, TextLink } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
@@ -13,6 +12,7 @@ import '../../kit/Pager.esm.js';
 import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
+import { Time } from '../../kit/Time.esm.js';
 import { verifiableOf, verifyDisplay, rekorUrl, VerifyChip, RekorIndex, ChangeHistory, saveAsFile } from '../clearances/ChangeProof.esm.js';
 import { decodeAttestation, predicateRows, limitations } from './bundle.esm.js';
 
@@ -88,7 +88,7 @@ function AttestationDetail({ row, onOpenChange }) {
       ] }),
       display.kind === "verified" && /* @__PURE__ */ jsxs(Callout, { tone: "ok", children: [
         "Clearance re-checked the signature at ",
-        dateTime(display.at),
+        /* @__PURE__ */ jsx(Time, { iso: display.at }),
         display.detail ? ` (${display.detail})` : "",
         "."
       ] }),
@@ -115,14 +115,14 @@ function AttestationDetail({ row, onOpenChange }) {
     ] }) }),
     /* @__PURE__ */ jsx(Section, { framed: true, level: 2, "aria-label": "Signer and log entry", title: "Signer and log entry", children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
       /* @__PURE__ */ jsxs(FactGrid, { min: 260, children: [
-        /* @__PURE__ */ jsx(Fact, { label: "Signed", children: dateTime(row.signed_at) }),
+        /* @__PURE__ */ jsx(Fact, { label: "Signed", children: /* @__PURE__ */ jsx(Time, { iso: row.signed_at }) }),
         keyless ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx(Fact, { label: "Signer", children: "keyless (Fulcio certificate in the bundle)" }),
           identity && /* @__PURE__ */ jsx(Fact, { label: "Certificate identity", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: identity }) }),
           issuer && /* @__PURE__ */ jsx(Fact, { label: "Certificate issuer", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: issuer }) })
         ] }) : /* @__PURE__ */ jsx(Fact, { label: "Key id", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: keyId || "\u2014" }) }),
         /* @__PURE__ */ jsx(Fact, { label: "Rekor log index", children: index === null || index === void 0 ? "not logged" : /* @__PURE__ */ jsx(RekorIndex, { index, url }) }),
-        integrated && /* @__PURE__ */ jsx(Fact, { label: "Log integrated", children: dateTime(integrated) }),
+        integrated && /* @__PURE__ */ jsx(Fact, { label: "Log integrated", children: /* @__PURE__ */ jsx(Time, { iso: integrated }) }),
         row.rekor_uuid && /* @__PURE__ */ jsx(Fact, { label: "Rekor uuid", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: row.rekor_uuid }) }),
         /* @__PURE__ */ jsx(Fact, { label: "DSSE digest", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: row.digest }) })
       ] }),

@@ -2,9 +2,9 @@ import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { tokensForTheme, fontScale, fontMono } from '../../kit/tokens.esm.js';
-import { dateTime, shortPrincipal } from '../../kit/format.esm.js';
+import { whenTitle, utcDateTime, dateTime, shortPrincipal } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
-import { TextLink, StatusChip, Section, TabError, PanelSkeleton, EmptyNote, Tooltip, YamlBlock, Button, Chip, FactGrid, Fact, Callout } from '../../kit/kit.esm.js';
+import { TextLink, StatusChip, Section, TabError, PanelSkeleton, EmptyNote, YamlBlock, Tooltip, Button, Chip, FactGrid, Fact, Callout } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -14,6 +14,7 @@ import '../../kit/Pager.esm.js';
 import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
+import { Time } from '../../kit/Time.esm.js';
 
 const useStyles = makeStyles((theme) => {
   const t = tokensForTheme(theme);
@@ -60,8 +61,8 @@ function verifyDisplay(args) {
   return { kind: "unchecked", note: "Signed and recorded. Not re-checked yet." };
 }
 function VerifyChip({ display }) {
-  if (display.kind === "verified") return /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `The server re-checked the signature at ${dateTime(display.at)}`, children: "verified" });
-  if (display.kind === "failed") return /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `The server's check failed at ${dateTime(display.at)}`, children: "verification failed" });
+  if (display.kind === "verified") return /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `The server re-checked the signature at ${whenTitle(display.at)}`, children: "verified" });
+  if (display.kind === "failed") return /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `The server's check failed at ${whenTitle(display.at)}`, children: "verification failed" });
   return /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", title: display.note, children: "signed (recorded)" });
 }
 function shortDigest(d) {
@@ -114,7 +115,7 @@ function recordDetail(item) {
 function nextStep(change) {
   switch (attestationState(change)) {
     case "waiting-for-clear":
-      return { title: "Holding for a person", detail: `Expires ${dateTime(change.expires_at)}.` };
+      return { title: "Holding for a person", detail: `Expires ${dateTime(change.expires_at)}.`, at: change.expires_at };
     case "waiting-for-outcome":
       return { title: "Waiting for a deploy outcome", detail: "The core signs after the first outcome that applied what was cleared." };
     case "not-yet-signed":
@@ -156,7 +157,7 @@ function ChangeHistory({ change }) {
         const t = TOOL_TEXT[it.tool] ?? { what: "", tone: "plain" };
         const detail = recordDetail(it);
         return /* @__PURE__ */ jsxs("li", { className: c.event, children: [
-          /* @__PURE__ */ jsx(Tooltip, { title: dateTime(it.ts), children: /* @__PURE__ */ jsx("span", { className: c.when, children: dateTime(it.ts).slice(5) }) }),
+          /* @__PURE__ */ jsx("span", { className: c.when, children: /* @__PURE__ */ jsx(Time, { iso: it.ts, format: "short" }) }),
           glyph(i + 1, t.tone),
           /* @__PURE__ */ jsxs("div", { className: c.what, children: [
             /* @__PURE__ */ jsxs("span", { children: [
@@ -184,7 +185,7 @@ function ChangeHistory({ change }) {
         /* @__PURE__ */ jsx("span", { className: `${c.glyph} ${c.glyphWait}`, "aria-hidden": true, children: items.length + 1 }),
         /* @__PURE__ */ jsxs("div", { className: c.what, children: [
           /* @__PURE__ */ jsx("b", { children: pending.title }),
-          /* @__PURE__ */ jsx("span", { className: c.detail, children: pending.detail })
+          /* @__PURE__ */ jsx(Tooltip, { title: pending.at ? utcDateTime(pending.at, true) : void 0, children: /* @__PURE__ */ jsx("span", { className: c.detail, children: pending.detail }) })
         ] }),
         /* @__PURE__ */ jsx("span", {})
       ] })
@@ -229,7 +230,7 @@ function OutcomePanel({ change }) {
         ] })
       ] }),
       /* @__PURE__ */ jsxs(FactGrid, { min: 220, children: [
-        /* @__PURE__ */ jsx(Fact, { label: "When", children: dateTime(o.at) }),
+        /* @__PURE__ */ jsx(Fact, { label: "When", children: /* @__PURE__ */ jsx(Time, { iso: o.at }) }),
         o.provider && /* @__PURE__ */ jsx(Fact, { label: "Provider", children: o.provider }),
         (o.digest || o.plan_digest) && /* @__PURE__ */ jsx(Fact, { label: o.plan_digest ? "Plan digest" : "Applied digest", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: shortDigest(o.plan_digest ?? o.digest) }) }),
         o.release && /* @__PURE__ */ jsx(Fact, { label: "Release", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: o.release }) }),
@@ -298,9 +299,14 @@ function AttestationPanel({ change }) {
       ] }),
       /* @__PURE__ */ jsxs("span", { className: c.detail, children: [
         "Signed ",
-        dateTime(att.created_at),
+        /* @__PURE__ */ jsx(Time, { iso: att.created_at }),
         ".",
-        display.kind === "verified" ? ` Re-checked by Clearance at ${dateTime(display.at)}${display.detail ? ` (${display.detail})` : ""}.` : ""
+        display.kind === "verified" && /* @__PURE__ */ jsxs(Fragment, { children: [
+          " Re-checked by Clearance at ",
+          /* @__PURE__ */ jsx(Time, { iso: display.at }),
+          display.detail ? ` (${display.detail})` : "",
+          "."
+        ] })
       ] }),
       display.kind === "recorded" && /* @__PURE__ */ jsx(Callout, { tone: "info", children: display.note }),
       display.kind === "failed" && /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "The signature did not verify", children: display.errors.length ? display.errors.join("; ") : "Clearance reported verified: false." }),
@@ -331,7 +337,7 @@ function AttestationPanel({ change }) {
         ", and a deploy reported applying it, signed",
         att.rekor_log_index !== null ? " and logged" : "",
         " at ",
-        dateTime(att.created_at),
+        /* @__PURE__ */ jsx(Time, { iso: att.created_at }),
         ". It does not prove what the cluster looks like now."
       ] }),
       commands && /* @__PURE__ */ jsxs("div", { children: [

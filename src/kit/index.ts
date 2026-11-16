@@ -17,3 +17,4 @@ export * from './coveragePoll';
 export * from './Pager';
 export * from './tiers';
 export * from './ExpandRow';
+export * from './Time';

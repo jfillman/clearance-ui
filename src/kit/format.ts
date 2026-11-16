@@ -16,20 +16,57 @@ export function relativeTime(iso: string | null | undefined, now: number = Date.
   return ms >= 0 ? text : `in ${text}`;
 }
 
-export function clock(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+// Times are shown in the viewer's own time zone and locale (the way Tower does: Date#toLocaleString), with the UTC
+// moment on hover (`utcDateTime`, `whenTitle`, the <Time> component). A test pins `timeZone` and `locale`; the views
+// pass neither, so the browser's own are used.
+
+export interface TimeOptions {
+  /** An IANA zone ("UTC", "America/Toronto"); the viewer's own when left out. */
+  timeZone?: string;
+  /** A BCP 47 tag ("en-US"); the viewer's own when left out. */
+  locale?: string;
 }
 
-/** `2026-10-31 01:13Z`: the day and minute, UTC, so a run or record can be placed in time (relativeTime says how long ago). */
-export function dateTime(iso: string | null | undefined): string {
-  if (!iso) return '';
+const parse = (iso: string | null | undefined): Date | undefined => {
+  if (!iso) return undefined;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
+  return Number.isNaN(d.getTime()) ? undefined : d;
+};
+
+/** The moment of day in the viewer's zone, as Tower's `toLocaleTimeString`: `9:13:42 AM`. */
+export function clock(iso: string | null | undefined, o: TimeOptions = {}): string {
+  const d = parse(iso);
+  if (!d) return iso ?? '';
+  return d.toLocaleTimeString(o.locale, { timeZone: o.timeZone });
+}
+
+/** The date and time in the viewer's zone, as Tower's `formatDateTime` (`Date#toLocaleString`): `10/31/2026, 9:13:42 AM`. */
+export function dateTime(iso: string | null | undefined, o: TimeOptions = {}): string {
+  const d = parse(iso);
+  if (!d) return iso ?? '';
+  return d.toLocaleString(o.locale, { timeZone: o.timeZone });
+}
+
+/** A compact month, day and minute in the viewer's zone, for a table cell: `10/31, 09:13`. */
+export function dateTimeShort(iso: string | null | undefined, o: TimeOptions = {}): string {
+  const d = parse(iso);
+  if (!d) return iso ?? '';
+  return d.toLocaleString(o.locale, { timeZone: o.timeZone, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+/** `2026-10-31 01:13Z`: the same moment in UTC, to the minute (`seconds` adds them), the value shown on hover. */
+export function utcDateTime(iso: string | null | undefined, seconds = false): string {
+  const d = parse(iso);
+  if (!d) return iso ?? '';
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}Z`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${seconds ? `:${p(d.getUTCSeconds())}` : ''}Z`;
+}
+
+/** A hover for text that is not itself a time (a "3 min ago"): the local time and the UTC time. */
+export function whenTitle(iso: string | null | undefined, o: TimeOptions = {}): string {
+  const d = parse(iso);
+  if (!d) return iso ?? '';
+  return `${dateTime(iso, o)} (${utcDateTime(iso, true)})`;
 }
 
 /** 182000 -> 182k; 2100000 -> 2.1M. */
