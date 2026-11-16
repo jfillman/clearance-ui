@@ -659,22 +659,9 @@ declare const shortPrincipal: (p: string | null | undefined) => string;
 /** A workload principal (`<namespace>/<serviceaccount>`), as opposed to a person (`user:`). */
 declare const isWorkload: (p: string | null | undefined) => boolean;
 declare function relativeTime(iso: string | null | undefined, now?: number): string;
-interface TimeOptions {
-    /** An IANA zone ("UTC", "America/Toronto"); the viewer's own when left out. */
-    timeZone?: string;
-    /** A BCP 47 tag ("en-US"); the viewer's own when left out. */
-    locale?: string;
-}
-/** The moment of day in the viewer's zone, as Tower's `toLocaleTimeString`: `9:13:42 AM`. */
-declare function clock(iso: string | null | undefined, o?: TimeOptions): string;
-/** The date and time in the viewer's zone, as Tower's `formatDateTime` (`Date#toLocaleString`): `10/31/2026, 9:13:42 AM`. */
-declare function dateTime(iso: string | null | undefined, o?: TimeOptions): string;
-/** A compact month, day and minute in the viewer's zone, for a table cell: `10/31, 09:13`. */
-declare function dateTimeShort(iso: string | null | undefined, o?: TimeOptions): string;
-/** `2026-10-31 01:13Z`: the same moment in UTC, to the minute (`seconds` adds them), the value shown on hover. */
-declare function utcDateTime(iso: string | null | undefined, seconds?: boolean): string;
-/** A hover for text that is not itself a time (a "3 min ago"): the local time and the UTC time. */
-declare function whenTitle(iso: string | null | undefined, o?: TimeOptions): string;
+declare function clock(iso: string | null | undefined): string;
+/** `2026-10-31 01:13Z`: the day and minute, UTC, so a run or record can be placed in time (relativeTime says how long ago). */
+declare function dateTime(iso: string | null | undefined): string;
 /** 182000 -> 182k; 2100000 -> 2.1M. */
 declare function compact(n: number | undefined): string;
 /** The ratio used of limit, clamped to [0, 1]; 0 when there is no limit. */
@@ -1242,6 +1229,10 @@ declare const COVERAGE_MAX_STALE_MS: number;
 declare const COVERAGE_BACKOFF_BASE_MS = 5000;
 /** The longest wait between retries: a server that is struggling is asked at most every two minutes. */
 declare const COVERAGE_BACKOFF_CAP_MS = 120000;
+/** The longest a server's own `Retry-After` is believed: a bogus date years away must not silence a banner for good. */
+declare const COVERAGE_RETRY_AFTER_MAX_MS: number;
+/** One read is abandoned after this long (a stalled request would hold the only poll slot); it counts as a busy failure. */
+declare const COVERAGE_REQUEST_MS = 30000;
 /** Reads in flight at once, across every scope on the page. The server admits 2 per replica for everyone. */
 declare const COVERAGE_CONCURRENCY = 1;
 /** Statuses where the server (or the proxy) is busy or timed out: worth saying "being computed" and retrying soon. */
@@ -1264,7 +1255,7 @@ interface CoveragePollerOptions {
     random?: () => number;
     isHidden?: () => boolean;
 }
-/** The retry delay a failure asks for, in ms: `Retry-After` when sent (bounded), else exponential back-off; both capped. */
+/** The retry delay a failure asks for, in ms: the server's `Retry-After` when sent (at least 1 s; never shortened by the back-off cap), else exponential back-off up to the cap. */
 declare function retryDelayMs(failures: number, retryAfterMs?: number): number;
 /** The shared poller for one transport: entries by (scope, from), one reader at a time, one timer. */
 declare class CoveragePoller {
@@ -1459,15 +1450,6 @@ interface ExpandRowProps {
 /** A row that expands inline. Renders two `<tr>`s: the row, and while open its details. */
 declare function ExpandRow({ id, open, onToggle, colSpan, children, details, label }: ExpandRowProps): react.JSX.Element;
 
-/**
- * A moment as the viewer's local time, with the UTC value on hover. The one way a view shows a time as text (W-11):
- * `format` picks the date and time (default), a compact month-day-minute for a table cell, or the time of day.
- */
-declare function Time({ iso, format }: {
-    iso: string | null | undefined;
-    format?: 'full' | 'short' | 'clock';
-}): react.JSX.Element | null;
-
 type ClearanceView = 'clearances' | 'evidence' | 'exceptions' | 'attestations' | 'map' | 'policy';
 declare const CLEARANCE_VIEWS: Array<{
     id: ClearanceView;
@@ -1524,5 +1506,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Time, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, dateTimeShort, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy, utcDateTime, whenTitle };
-export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageBannerProps, CoverageHealth, CoveragePollerOptions, CoverageRead, CoverageSnapshot, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, TimeOptions, Tone, VerificationBrief, VerifyAnswer };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy };
+export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageBannerProps, CoverageHealth, CoveragePollerOptions, CoverageRead, CoverageSnapshot, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, Tone, VerificationBrief, VerifyAnswer };

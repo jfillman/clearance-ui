@@ -25,6 +25,10 @@ export const COVERAGE_MAX_STALE_MS = 3 * COVERAGE_POLL_MS;
 export const COVERAGE_BACKOFF_BASE_MS = 5_000;
 /** The longest wait between retries: a server that is struggling is asked at most every two minutes. */
 export const COVERAGE_BACKOFF_CAP_MS = 120_000;
+/** The longest a server's own `Retry-After` is believed: a bogus date years away must not silence a banner for good. */
+export const COVERAGE_RETRY_AFTER_MAX_MS = 60 * 60_000;
+/** One read is abandoned after this long (a stalled request would hold the only poll slot); it counts as a busy failure. */
+export const COVERAGE_REQUEST_MS = 30_000;
 /** Reads in flight at once, across every scope on the page. The server admits 2 per replica for everyone. */
 export const COVERAGE_CONCURRENCY = 1;
 /** Of a retry delay, at most this fraction is added at random so several people's pages do not retry in step. */
@@ -56,6 +60,8 @@ interface Entry {
   failures: number;
   inflight: boolean;
   queued: boolean;
+  /** A refresh was asked for while a read was out: read again as soon as it settles. */
+  refreshPending: boolean;
 }
 
 export interface CoveragePollerOptions {
@@ -65,9 +71,9 @@ export interface CoveragePollerOptions {
   isHidden?: () => boolean;
 }
 
-/** The retry delay a failure asks for, in ms: `Retry-After` when sent (bounded), else exponential back-off; both capped. */
+/** The retry delay a failure asks for, in ms: the server's `Retry-After` when sent (at least 1 s; never shortened by the back-off cap), else exponential back-off up to the cap. */
 export function retryDelayMs(failures: number, retryAfterMs?: number): number {
-  if (retryAfterMs !== undefined && retryAfterMs > 0) return Math.min(Math.max(retryAfterMs, 1_000), COVERAGE_BACKOFF_CAP_MS);
+  if (retryAfterMs !== undefined && retryAfterMs > 0) return Math.min(Math.max(retryAfterMs, 1_000), COVERAGE_RETRY_AFTER_MAX_MS);
   return Math.min(COVERAGE_BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1), COVERAGE_BACKOFF_CAP_MS);
 }
 
@@ -79,6 +85,14 @@ const statusOf = (e: unknown): number | undefined => {
   const v = e && typeof e === 'object' ? (e as { status?: unknown }).status : undefined;
   return typeof v === 'number' ? v : undefined;
 };
+
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('coverage read timed out')), ms);
+  });
+  return Promise.race([p, expired]).finally(() => clearTimeout(timer));
+}
 
 /** The shared poller for one transport: entries by (scope, from), one reader at a time, one timer. */
 export class CoveragePoller {
@@ -105,7 +119,7 @@ export class CoveragePoller {
     let e = this.entries.get(k);
     if (!e) {
       this.prune();
-      e = { scope, from, snap: { busy: false, loading: true }, subscribers: new Set(), nextAt: 0, failures: 0, inflight: false, queued: false };
+      e = { scope, from, snap: { busy: false, loading: true }, subscribers: new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false };
       this.entries.set(k, e);
     }
     const first = e.subscribers.size === 0;
@@ -140,6 +154,10 @@ export class CoveragePoller {
   refresh(scope: string, from?: string): void {
     const e = this.entries.get(this.key(scope, from));
     if (!e || e.subscribers.size === 0) return;
+    if (e.inflight) {
+      e.refreshPending = true; // that read may predate what changed
+      return;
+    }
     e.nextAt = this.now();
     this.schedule();
   }
@@ -218,7 +236,7 @@ export class CoveragePoller {
     e.snap = { ...e.snap, loading: true };
     this.notify(e);
     try {
-      const data = await this.api.get<CoverageStatement>('/v1/coverage', { scope: e.scope, from: e.from });
+      const data = await withDeadline(this.api.get<CoverageStatement>('/v1/coverage', { scope: e.scope, from: e.from }), COVERAGE_REQUEST_MS);
       e.failures = 0;
       e.snap = { data, updatedAt: this.now(), busy: false, loading: false };
       e.nextAt = this.now() + COVERAGE_POLL_MS;
@@ -232,6 +250,10 @@ export class CoveragePoller {
       e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : undefined, loading: false };
     } finally {
       e.inflight = false;
+      if (e.refreshPending) {
+        e.refreshPending = false;
+        e.nextAt = this.now();
+      }
     }
     this.notify(e);
   }
@@ -264,6 +286,13 @@ export function useCoveragePoll(api: ClearanceRead, scope: string | undefined, f
     if (!scope) return undefined;
     return poller.subscribe(scope, from, () => setVersion(v => v + 1));
   }, [poller, scope, from]);
+  // The good answer stops standing in for a failing one at updatedAt + COVERAGE_MAX_STALE_MS: render again then, even if nothing else changes.
+  const updatedAt = scope ? poller.snapshot(scope, from).updatedAt : undefined;
+  useEffect(() => {
+    if (updatedAt === undefined) return undefined;
+    const id = setTimeout(() => setVersion(v => v + 1), Math.max(0, updatedAt + COVERAGE_MAX_STALE_MS - Date.now()) + 1);
+    return () => clearTimeout(id);
+  }, [updatedAt]);
   const refresh = useCallback(() => {
     if (scope) poller.refresh(scope, from);
   }, [poller, scope, from]);

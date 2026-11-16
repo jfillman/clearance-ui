@@ -5,6 +5,8 @@ import {
   COVERAGE_BACKOFF_CAP_MS,
   COVERAGE_MAX_STALE_MS,
   COVERAGE_POLL_MS,
+  COVERAGE_REQUEST_MS,
+  COVERAGE_RETRY_AFTER_MAX_MS,
   COVERAGE_REFOCUS_MS,
   CoveragePoller,
   retryDelayMs,
@@ -146,7 +148,8 @@ describe('shared coverage poll', () => {
     expect([1, 2, 3, 4, 5, 6, 7, 20].map(n => retryDelayMs(n))).toEqual([5000, 10000, 20000, 40000, 80000, 120000, 120000, 120000]);
     expect(COVERAGE_BACKOFF_BASE_MS).toBe(5000);
     expect(retryDelayMs(1, 5000)).toBe(5000);
-    expect(retryDelayMs(1, 600_000)).toBe(COVERAGE_BACKOFF_CAP_MS);
+    expect(retryDelayMs(1, 600_000)).toBe(600_000); // the server's own wait is not shortened
+    expect(retryDelayMs(1, 99 * 3_600_000)).toBe(COVERAGE_RETRY_AFTER_MAX_MS);
     expect(retryDelayMs(1, 0)).toBe(5000);
   });
 
@@ -242,6 +245,47 @@ describe('shared coverage poll', () => {
     h.unmount();
     await flush(COVERAGE_POLL_MS * 3);
     expect(started).toHaveLength(1);
+  });
+
+  it('abandons a stalled read after the deadline, frees the slot and retries with back-off', async () => {
+    const { api, started } = fakeApi(scope => (scope === 'a' ? new Promise(() => {}) : statement(scope)));
+    const p = poller(api);
+    const a = renderHook(() => useCoveragePoll(api, 'a', undefined, p));
+    renderHook(() => useCoveragePoll(api, 'b', undefined, p));
+    await flush(COVERAGE_REQUEST_MS - 1);
+    expect(started.map(s => s.scope)).toEqual(['a']);
+    await flush(1);
+    expect(started.map(s => s.scope)).toEqual(['a', 'b']);
+    expect(a.result.current.busy).toBe(true);
+  });
+
+  it('a refresh asked for while a read is out is read again when it settles', async () => {
+    let release: (v: unknown) => void = () => {};
+    const { api, started } = fakeApi((scope, n) => (n === 1 ? new Promise(r => (release = r)) : statement(scope, 9)));
+    const p = poller(api);
+    const { result } = renderHook(() => useCoveragePoll(api, 'prod', undefined, p));
+    await flush();
+    act(() => result.current.refresh());
+    await flush();
+    expect(started).toHaveLength(1);
+    release(statement('prod', 1));
+    await flush();
+    expect(started).toHaveLength(2);
+    expect(result.current.data?.cleared_and_verified.count).toBe(9);
+  });
+
+  it('an expired good answer disappears on its own, without another poll', async () => {
+    let fail = false;
+    const { api } = fakeApi(scope => (fail ? new Promise(() => {}) : statement(scope, 3)));
+    const p = poller(api);
+    const { result } = renderHook(() => useCoveragePoll(api, 'prod', undefined, p));
+    await flush();
+    fail = true;
+    // the next reads hang until their deadline: nothing notifies the hook near the expiry itself
+    await flush(COVERAGE_MAX_STALE_MS - 1000);
+    expect(result.current.data).toBeDefined();
+    await flush(2000);
+    expect(result.current.data).toBeUndefined();
   });
 
   it('refresh() reads the scope now', async () => {
