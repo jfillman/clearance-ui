@@ -134,8 +134,10 @@ export interface EdgeView {
   d: string;
   width: number;
   dim: boolean;
-  /** Only where it adds meaning (refusals, a holding change, a blind observer) and only where it fits clear of everything else. */
+  /** Only where it adds meaning (refusals, a holding change) and only where it fits clear of everything else. */
   label?: EdgeLabel;
+  /** Set on the aggregate edge an open group keeps for the rows hidden beyond ROW_CAP: how many are hidden. */
+  aggregate?: number;
 }
 export interface Column {
   key: 'gates' | 'core' | 'targets' | 'observers';
@@ -180,8 +182,9 @@ interface Resolved {
 }
 
 const textWidth = (s: string) => s.length * 6.6 + 8;
+// A blind or stale observer is said once, on the observer's own node; its edges carry no word, only the colour.
 const labelText = (e: MapEdge): string | undefined => {
-  if (e.kind === 'watches') return ({ down: 'blind', attention: 'stale' } as Record<string, string>)[e.status];
+  if (e.kind === 'watches') return undefined;
   if (e.holding > 0) return `${e.holding} holding`;
   if (e.refused > 0) return `${e.refused} refused`;
   return undefined;
@@ -225,9 +228,20 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
   const rowOwner = new Map<string, Pre>(pre.flatMap(p => p.drawn.map((t): [string, Pre] => [`target:${t.id}`, p])));
 
   // Edges that can be drawn: they end on a drawn group, or on a drawn row of an open one.
-  const usable = map.edges
+  const candidates = map.edges
     .map((edge, index) => ({ edge, index, owner: preById.get(edge.to) ?? rowOwner.get(edge.to) }))
     .filter((e): e is { edge: MapEdge; index: number; owner: Pre } => !!e.owner);
+  // An open group draws the edges that end on its rows, not also the aggregate one to its header: the header edge stays
+  // only for what the rows cannot show, the rows hidden beyond ROW_CAP (and, if the server sent no row edge from that
+  // source, because then the header edge is the only line that says it guards the group).
+  const rowEdgeFrom = new Set(candidates.filter(e => rowOwner.has(e.edge.to)).map(e => `${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`));
+  const usable = candidates.filter(e => {
+    const isHeader = e.edge.to === e.owner.node.id;
+    if (!isHeader || !e.owner.open || e.owner.drawn.length === 0 || e.owner.hidden > 0) return true;
+    return !rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`);
+  });
+  // labelled as the hidden rows' aggregate only when it is kept beside row edges (otherwise it is the group's only line)
+  const aggregateOf = new Set(usable.filter(e => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0 && rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`)).map(e => e.index));
   const inCount = new Map<string, number>();
   const outCount = new Map<string, number>();
   const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
@@ -363,14 +377,14 @@ export function buildTopology(map: MapResponse, filters: MapFilters, expanded: s
     const raw: Pt[] = sy === ty ? [{ x: xs, y: sy }, { x: xe, y: ty }] : [{ x: xs, y: sy }, { x: lane, y: sy }, { x: lane, y: ty }, { x: xe, y: ty }];
     const points = simplify(raw);
     const dim = r.src.dim || (r.row ? r.row.dim : r.group.dim) || (filters.attentionOnly && r.edge.status === 'ok');
-    return { id: `${r.edge.from}>${r.edge.to}`, edge: r.edge, points, d: roundedPath(points), width: g ? Math.min(edgeWidth(r.edge.volume), MAX_STROKE) : 1.5, dim };
+    return { id: `${r.edge.from}>${r.edge.to}`, edge: r.edge, points, d: roundedPath(points), width: g ? Math.min(edgeWidth(r.edge.volume), MAX_STROKE) : 1.5, dim, aggregate: aggregateOf.has(r.index) ? r.group.hiddenRows : undefined };
   });
 
   // Labels: only where the edge says something, and only on a run long enough to hold the text clear of every other line and box.
   const boxes: Rect[] = [...gates, ...groups, ...observers];
   const allSegs = edges.map(e => segments(e.points));
   edges.forEach((e, ei) => {
-    const text = labelText(e.edge);
+    const text = e.aggregate ? `+${e.aggregate} hidden rows` : labelText(e.edge);
     if (!text) return;
     const w = textWidth(text);
     const segs = segments(e.points).filter(s => s.a.y === s.b.y);
@@ -428,6 +442,50 @@ export function visibleAttention(items: AttentionItem[], filters: MapFilters, ta
     return [item.title, item.detail, item.gate_type, item.gate_type ? gateName(item.gate_type) : undefined, item.instance, item.kind].some(v => norm(v).includes(norm(q))) || names.some(t => targetMatches(t, q));
   });
 }
+
+/** An attention row: one item, or several alike (same kind, gate and wording once the target is taken out) merged. */
+export interface AttentionRow extends AttentionItem {
+  /** Names of the targets it covers, for the line that lists them (empty for one target: the title already names it). */
+  names: string[];
+}
+
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The same alert for several targets as one row. The API sends an item per target for some kinds ("observe-k8s is blind on
+ * app-a", "... on app-b"), so identical items are merged here by kind + wording with the target taken out: one row with a
+ * count, the targets listed. An item the server already sent for several targets keeps its own count and gets the list.
+ */
+export function groupAttention(items: AttentionItem[], targets: TargetNode[]): AttentionRow[] {
+  const nameOf = (id: string) => targets.find(t => t.id === id || t.name === id)?.name ?? id;
+  const strip = (text: string, ids: string[]) => {
+    const words = [...new Set(ids.flatMap(id => [id, nameOf(id)]))].sort((a, b) => b.length - a.length).filter(Boolean);
+    return words.length === 0 ? text : text.replace(new RegExp(`(?<![\\w-])(?:${words.map(escapeRe).join('|')})(?![\\w-])`, 'g'), '[[target]]');
+  };
+  const rows = new Map<string, { row: AttentionRow; title: string; detail: string }>();
+  const out: AttentionRow[] = [];
+  for (const it of items) {
+    // a title that opens with its own count ("1 change waiting on a person") must not keep the first item's number once merged
+    const title = strip(it.title, it.targets).replace(new RegExp(`^${it.count}(?= )`), '[[count]]');
+    const detail = strip(it.detail, it.targets);
+    const key = it.targets.length === 0 ? `\u0000${out.length}` : [it.kind, it.severity, it.gate_type ?? '', it.instance ?? '', title, detail].join('\u0001');
+    const seen = rows.get(key);
+    if (!seen) {
+      const row: AttentionRow = { ...it, targets: [...it.targets], names: it.targets.length > 1 ? it.targets.map(nameOf) : [] };
+      rows.set(key, { row, title, detail });
+      out.push(row);
+      continue;
+    }
+    seen.row.count += it.count;
+    seen.row.targets = [...new Set([...seen.row.targets, ...it.targets])];
+    seen.row.names = seen.row.targets.map(nameOf);
+    seen.row.title = seen.title.split('[[target]]').join(plural(seen.row.targets.length, 'target')).split('[[count]]').join(String(seen.row.count));
+    seen.row.detail = seen.detail.split('[[target]]').join(plural(seen.row.targets.length, 'target'));
+  }
+  return out;
+}
+
+const plural = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
 
 /** The groups holding the targets an attention item names, for "Show": open exactly those. */
 export function groupsOf(item: AttentionItem, targets: TargetNode[]): string[] {

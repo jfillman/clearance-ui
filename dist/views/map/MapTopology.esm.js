@@ -1,17 +1,19 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState } from 'react';
-import Popper from '@material-ui/core/Popper';
+import { useRef, useEffect, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useClearanceTokens, fontBody } from '../../kit/tokens.esm.js';
-import { Button, TextLink, Tooltip, StatusChip } from '../../kit/kit.esm.js';
+import { TextLink, Tooltip, StatusChip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
+import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
 import { ROW_CAP, gateWords, COVERAGE_ORDER } from './model.esm.js';
 import { statusColor, coverageColors, statusWord, mixWords, CoverageMix, statusTone } from './parts.esm.js';
+import { placePopover } from './layout.esm.js';
 import { useMapStyles } from './styles.esm.js';
 import { useHoverIntent } from './useHoverIntent.esm.js';
 
@@ -64,7 +66,9 @@ function hoverProps(sel, h) {
     onMouseEnter: (e) => h.on(sel, e.currentTarget),
     onMouseLeave: () => h.off(),
     onFocus: (e) => h.on(sel, e.currentTarget),
-    onBlur: () => h.off()
+    onBlur: (e) => {
+      if (!h.within(e.relatedTarget)) h.off();
+    }
   };
 }
 function GateNode({ v, t, h, onSel }) {
@@ -176,7 +180,7 @@ function EdgePath({ e, t }) {
   return /* @__PURE__ */ jsxs("g", { opacity: e.dim ? 0.18 : 1, role: "img", "aria-label": label, children: [
     /* @__PURE__ */ jsx("title", { children: label }),
     /* @__PURE__ */ jsx("path", { className: c.edge, d: e.d, stroke: color, strokeWidth: e.width, strokeDasharray: watch ? "5 4" : void 0, opacity: watch ? 0.85 : 0.6, markerEnd: `url(#${arrowId(state)})` }),
-    !watch && e.edge.volume > 0 && !e.dim && /* @__PURE__ */ jsx("path", { className: c.flow, d: e.d })
+    !watch && e.edge.volume > 0 && !e.dim && /* @__PURE__ */ jsx("path", { className: c.flow, d: e.d, stroke: color, style: { stroke: `color-mix(in srgb, ${color} 45%, white)` } })
   ] });
 }
 function ColumnHeads({ topo }) {
@@ -194,7 +198,7 @@ function ColumnHeads({ topo }) {
     topo.columns.filter((col) => col.key !== "core").map((col) => /* @__PURE__ */ jsx("line", { x1: col.x, x2: col.x + col.w, y1: 35, y2: 35, stroke: t.lineSoft }, col.key))
   ] });
 }
-function Popover({ sel, topo, el, h, onOpen, onToggle }) {
+function Popover({ sel, topo, el, h, popRef, onOpen, onToggle }) {
   const c = useMapStyles();
   let name = "";
   let aria = "";
@@ -305,8 +309,7 @@ function Popover({ sel, topo, el, h, onOpen, onToggle }) {
             " \xB7 ",
             w.kind,
             " \xB7 ",
-            g.silent ? "silent" : g.mode,
-            " \xB7 "
+            g.silent ? "silent" : g.mode
           ] }),
           /* @__PURE__ */ jsx(Tooltip, { title: g.instance, children: /* @__PURE__ */ jsx("span", { className: c.popInstance, children: g.instance }) })
         ] }, g.instance);
@@ -316,67 +319,113 @@ function Popover({ sel, topo, el, h, onOpen, onToggle }) {
     ] });
     foot = /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpen(n.id), children: "Open detail \u2192" });
   }
-  return /* @__PURE__ */ jsx(
-    Popper,
-    {
-      open: true,
-      anchorEl: el,
-      placement: "right-start",
-      style: { zIndex: 1300 },
-      modifiers: { offset: { offset: "0, 10" }, flip: { enabled: true, behavior: ["right", "left", "bottom"] }, preventOverflow: { enabled: true, boundariesElement: "viewport", padding: 8 } },
-      children: /* @__PURE__ */ jsxs(
-        "div",
-        {
-          className: c.popover,
-          role: "dialog",
-          "aria-label": `${aria} details`,
-          "data-testid": "map-popover",
-          onMouseEnter: h.stay,
-          onMouseLeave: h.off,
-          children: [
-            /* @__PURE__ */ jsxs("div", { className: c.popHead, children: [
-              /* @__PURE__ */ jsx("h3", { className: c.popName, children: name }),
-              /* @__PURE__ */ jsx(StatusChip, { tone: statusTone(status), dot: true, children: statusWord(status) })
-            ] }),
-            body,
-            foot
-          ]
-        }
-      )
+  return /* @__PURE__ */ jsxs(PlacedBox, { el, popRef, h, wide: sel.kind === "target", label: `${aria} details`, children: [
+    /* @__PURE__ */ jsxs("div", { className: c.popHead, children: [
+      /* @__PURE__ */ jsx("h3", { className: c.popName, children: name }),
+      /* @__PURE__ */ jsx(StatusChip, { tone: statusTone(status), dot: true, children: statusWord(status) })
+    ] }),
+    body,
+    foot
+  ] });
+}
+function PlacedBox({ el, popRef, h, wide, label, children }) {
+  const c = useMapStyles();
+  const [at, setAt] = useState();
+  useLayoutEffect(() => {
+    const box = popRef.current;
+    if (!box) return;
+    if (!el.isConnected) {
+      h.close();
+      return;
     }
+    const r = el.getBoundingClientRect();
+    const p = box.getBoundingClientRect();
+    const next = placePopover({ x: r.left, y: r.top, w: r.width, h: r.height }, { w: p.width, h: p.height }, { w: window.innerWidth, h: window.innerHeight });
+    setAt((prev) => prev && prev.x === next.x && prev.y === next.y && prev.side === next.side ? prev : next);
+  });
+  return createPortal(
+    /* @__PURE__ */ jsx(
+      "div",
+      {
+        ref: popRef,
+        className: `${c.popover} ${wide ? c.popoverWide : ""}`,
+        style: { position: "fixed", left: at?.x ?? 0, top: at?.y ?? 0, visibility: at ? "visible" : "hidden", zIndex: 1300 },
+        "data-side": at?.side,
+        role: "dialog",
+        "aria-label": label,
+        "data-testid": "map-popover",
+        onMouseEnter: h.stay,
+        onMouseLeave: h.off,
+        onFocus: h.stay,
+        onBlur: (e) => {
+          if (!h.within(e.relatedTarget) && !el.contains(e.relatedTarget)) h.off();
+        },
+        children
+      }
+    ),
+    document.body
   );
 }
 function MapTopology({ topo, onToggleGroup, onOpenTarget }) {
   const c = useMapStyles();
   const t = useClearanceTokens();
   const { hover, enter, leave, hideNow } = useHoverIntent();
-  const [pinned, setPinned] = useState();
-  const shown = hover ?? pinned;
-  const handlers = { on: (sel, el) => enter({ sel, el }), off: leave, stay: () => hover && enter(hover) };
-  const pin = (sel, el) => setPinned((p) => p && p.sel.kind === sel.kind && p.sel.id === sel.id ? void 0 : { sel, el });
+  const popRef = useRef(null);
+  const openedAt = useRef(0);
+  const within = (n) => !!n && !!popRef.current && popRef.current.contains(n);
+  const open = (sel, el) => {
+    openedAt.current = Date.now();
+    enter({ sel, el });
+  };
+  const handlers = { on: open, off: leave, stay: () => hover && enter(hover), within, close: hideNow };
+  useEffect(() => {
+    if (!hover) return void 0;
+    const outside = (e) => {
+      const n = e.target;
+      if (n && (within(n) || hover.el.contains(n))) return;
+      hideNow();
+    };
+    const esc = (e) => {
+      if (e.key === "Escape") hideNow();
+    };
+    const scrolled = () => {
+      if (Date.now() - openedAt.current > 250) hideNow();
+    };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("mousedown", outside, true);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("scroll", scrolled, true);
+    window.addEventListener("resize", hideNow);
+    return () => {
+      document.removeEventListener("pointerdown", outside, true);
+      document.removeEventListener("mousedown", outside, true);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("scroll", scrolled, true);
+      window.removeEventListener("resize", hideNow);
+    };
+  }, [hover, hideNow]);
+  const toggle = (g) => {
+    hideNow();
+    onToggleGroup(g);
+  };
+  const openTarget = (id) => {
+    hideNow();
+    onOpenTarget(id);
+  };
   const total = topo.groups.reduce((n, g) => n + g.targets.length, 0);
-  return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    /* @__PURE__ */ jsx("div", { className: c.stage, onKeyDown: (e) => {
-      if (e.key === "Escape") {
-        setPinned(void 0);
-        hideNow();
-      }
-    }, children: /* @__PURE__ */ jsxs("div", { className: c.canvas, children: [
-      /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("svg", { className: c.svg, style: { maxWidth: Math.round(topo.width * 1.25) }, viewBox: `0 0 ${topo.width} ${topo.height}`, role: "group", "aria-label": `Coverage topology: ${topo.gates.length} gate types, ${total} targets in ${topo.groups.length} groups, ${topo.observers.length} observers`, fontFamily: fontBody, children: [
-        /* @__PURE__ */ jsx("defs", { children: [["ok", t.good], ["attention", t.amber], ["down", t.bad], ["quiet", t.textFaint]].map(([k, fill]) => /* @__PURE__ */ jsx("marker", { id: arrowId(k), orient: "auto", markerUnits: "userSpaceOnUse", markerWidth: 9, markerHeight: 9, refX: 8, refY: 4.5, children: /* @__PURE__ */ jsx("path", { d: "M0 0 L9 4.5 L0 9 Z", fill }) }, k)) }),
-        /* @__PURE__ */ jsx(ColumnHeads, { topo }),
-        /* @__PURE__ */ jsx("rect", { className: c.core, x: topo.core.x, y: topo.core.y, width: topo.core.w, height: topo.core.h, rx: 8, opacity: 0.55, "aria-hidden": "true" }),
-        topo.edges.map((e) => /* @__PURE__ */ jsx(EdgePath, { e, t }, e.id)),
-        topo.gates.map((v) => /* @__PURE__ */ jsx(GateNode, { v, t, h: handlers, onSel: pin }, v.node.id)),
-        topo.groups.map((v) => /* @__PURE__ */ jsx(GroupNodeView, { v, t, h: handlers, onToggle: onToggleGroup, onOpen: onOpenTarget }, v.node.id)),
-        topo.observers.map((v) => /* @__PURE__ */ jsx(ObserverNodeView, { v, t, h: handlers, onSel: pin }, v.node.id)),
-        topo.edges.filter((e) => e.label && !e.dim).map((e) => /* @__PURE__ */ jsx("text", { className: c.edgeLabel, x: e.label.x - e.label.w / 2, y: e.label.y, textAnchor: "start", style: { fill: statusColor(t, e.edge.status) }, "aria-hidden": "true", children: e.label.text }, `l-${e.id}`))
-      ] }) }),
-      shown && /* @__PURE__ */ jsx(Popover, { sel: shown.sel, topo, el: shown.el, h: handlers, onOpen: onOpenTarget, onToggle: onToggleGroup }),
-      pinned && !hover && /* @__PURE__ */ jsx("div", { style: { position: "absolute", top: -6, right: 0 }, children: /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setPinned(void 0), children: "Close details" }) })
-    ] }) })
-  );
+  return /* @__PURE__ */ jsx("div", { className: c.stage, children: /* @__PURE__ */ jsxs("div", { className: c.canvas, children: [
+    /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("svg", { className: c.svg, style: { maxWidth: Math.round(topo.width * 1.25) }, viewBox: `0 0 ${topo.width} ${topo.height}`, role: "group", "aria-label": `Coverage topology: ${topo.gates.length} gate types, ${total} targets in ${topo.groups.length} groups, ${topo.observers.length} observers`, fontFamily: fontBody, children: [
+      /* @__PURE__ */ jsx("defs", { children: [["ok", t.good], ["attention", t.amber], ["down", t.bad], ["quiet", t.textFaint]].map(([k, fill]) => /* @__PURE__ */ jsx("marker", { id: arrowId(k), orient: "auto", markerUnits: "userSpaceOnUse", markerWidth: 9, markerHeight: 9, refX: 8, refY: 4.5, children: /* @__PURE__ */ jsx("path", { d: "M0 0 L9 4.5 L0 9 Z", fill }) }, k)) }),
+      /* @__PURE__ */ jsx(ColumnHeads, { topo }),
+      /* @__PURE__ */ jsx("rect", { className: c.core, x: topo.core.x, y: topo.core.y, width: topo.core.w, height: topo.core.h, rx: 8, opacity: 0.55, "aria-hidden": "true" }),
+      topo.edges.map((e) => /* @__PURE__ */ jsx(EdgePath, { e, t }, e.id)),
+      topo.gates.map((v) => /* @__PURE__ */ jsx(GateNode, { v, t, h: handlers, onSel: open }, v.node.id)),
+      topo.groups.map((v) => /* @__PURE__ */ jsx(GroupNodeView, { v, t, h: handlers, onToggle: toggle, onOpen: openTarget }, v.node.id)),
+      topo.observers.map((v) => /* @__PURE__ */ jsx(ObserverNodeView, { v, t, h: handlers, onSel: open }, v.node.id)),
+      topo.edges.filter((e) => e.label && !e.dim).map((e) => /* @__PURE__ */ jsx("text", { className: c.edgeLabel, x: e.label.x - e.label.w / 2, y: e.label.y, textAnchor: "start", style: { fill: statusColor(t, e.edge.status) }, "aria-hidden": "true", children: e.label.text }, `l-${e.id}`))
+    ] }) }),
+    hover && /* @__PURE__ */ jsx(Popover, { sel: hover.sel, topo, el: hover.el, h: handlers, popRef, onOpen: openTarget, onToggle: toggle })
+  ] }) });
 }
 function MapLegend() {
   const c = useMapStyles();
@@ -410,6 +459,10 @@ function MapLegend() {
       " observer watching"
     ] }),
     /* @__PURE__ */ jsx("span", { children: "line width: decisions in the window" }),
+    /* @__PURE__ */ jsxs("span", { className: c.legendItem, children: [
+      /* @__PURE__ */ jsx("i", { className: `${c.swatch} ${c.swatchMoving}` }),
+      " moving dashes: decisions in the window"
+    ] }),
     /* @__PURE__ */ jsxs("span", { className: c.legendItem, children: [
       "gate bar:",
       /* @__PURE__ */ jsx("i", { className: c.legendDot, style: { backgroundColor: t.good } }),

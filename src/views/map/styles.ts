@@ -5,9 +5,11 @@ import { fontBody, fontDisplay, fontMono, fontScale as s, tokensForTheme } from 
 // What the Map draws that the kit has no piece for: the diagram's nodes and flow, the lane rows, the matrix cells and the
 // coverage bar. Everything else (panels, chips, filters, tables, callouts) is the kit's. Colours are tokens only; the
 // flow animation runs only for people who have not asked for reduced motion.
-// Wide enough for one gate line ("Pull request gate · Glidepath check · enforce · app-backstage-cicd/pipeline-runner") on a
-// single row; the popover is capped to the viewport, not the diagram (it is a portal).
-export const POP_W = 780;
+// A popover is as wide as its content, capped: POP_MAX for every kind, POP_MAX_WIDE for a target (its gate lines are the
+// long ones), and never wider than the viewport less a gutter on each side. It was once a fixed 780 px, which the screenshot
+// at 2x scale showed as a 1,560 px box across three columns.
+export const POP_MAX = 360;
+export const POP_MAX_WIDE = 420;
 export const useMapStyles = makeStyles<Theme>(theme => {
   const t = tokensForTheme(theme);
   return {
@@ -37,6 +39,7 @@ export const useMapStyles = makeStyles<Theme>(theme => {
     core: { fill: t.skySoft, stroke: t.skyLine, strokeWidth: 1, strokeDasharray: '3 4' },
     flow: {
       fill: 'none',
+      // the colour is set per edge (a lighter tint of the edge's own status colour); this is only the fallback
       stroke: t.sky,
       strokeWidth: 1.5,
       strokeDasharray: '4 8',
@@ -44,8 +47,9 @@ export const useMapStyles = makeStyles<Theme>(theme => {
       '@media (prefers-reduced-motion: no-preference)': { animation: '$mapFlow 1.6s linear infinite' },
     },
     popover: {
-      width: POP_W,
-      maxWidth: 'calc(100vw - 24px)',
+      width: 'max-content',
+      minWidth: 240,
+      maxWidth: `min(${POP_MAX}px, calc(100vw - 16px))`,
       boxSizing: 'border-box',
       backgroundColor: t.panel,
       border: `1px solid ${t.line}`,
@@ -58,14 +62,15 @@ export const useMapStyles = makeStyles<Theme>(theme => {
       display: 'grid',
       gap: 6,
     },
+    popoverWide: { maxWidth: `min(${POP_MAX_WIDE}px, calc(100vw - 16px))` },
     popHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     popName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: s.lg, margin: 0 },
-    popFacts: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: s.sm, '& dt': { color: t.textLo }, '& dd': { margin: 0, textAlign: 'right', whiteSpace: 'nowrap', minWidth: 0 } },
+    popFacts: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 12, rowGap: 2, margin: 0, fontFamily: fontMono, fontSize: s.sm, '& dt': { color: t.textLo }, '& dd': { margin: 0, textAlign: 'right', minWidth: 0, overflowWrap: 'break-word' } },
     popList: { display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' },
     // One gate per line; only the instance name (the long part) truncates, with its full text in the title.
-    popGate: { display: 'flex', maxWidth: '100%', minWidth: 0, justifyContent: 'flex-end' },
-    popLead: { whiteSpace: 'pre', flex: 'none' },
-    popInstance: { overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 },
+    popGate: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '100%', minWidth: 0 },
+    popLead: { overflowWrap: 'break-word', maxWidth: '100%' },
+    popInstance: { display: 'block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.textLo },
     legend: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 16px', padding: '8px 16px 12px', fontFamily: fontMono, fontSize: s.xs, color: t.textLo },
     legendItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
     legendDot: { display: 'inline-block', width: 9, height: 9, borderRadius: 2 },
@@ -73,11 +78,17 @@ export const useMapStyles = makeStyles<Theme>(theme => {
     swatchOk: { borderTopColor: t.good },
     swatchAttn: { borderTopColor: t.amber },
     swatchDown: { borderTopColor: t.bad },
+    swatchMoving: { borderTopColor: t.textLo, borderTopStyle: 'dotted', borderTopWidth: 2 },
     swatchWatch: { borderTopColor: t.textFaint, borderTopStyle: 'dashed', borderTopWidth: 2 },
     attnList: { listStyle: 'none', margin: 0, padding: 0, display: 'grid' },
-    attnItem: { display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center', padding: '10px 16px', borderTop: `1px solid ${t.lineSoft}`, '&:first-child': { borderTop: 'none' } },
-    attnTitle: { margin: 0, fontFamily: fontBody, fontSize: s.md, fontWeight: 500, color: t.textHi },
-    attnDetail: { margin: '2px 0 0', fontFamily: fontMono, fontSize: s.sm, color: t.textLo },
+    // The panel is a narrow column, so the kind chip and the action share one line and the text takes the full width under
+    // them (it used to sit between them and was squeezed to a few words a line).
+    attnItem: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gridTemplateAreas: '"chip action" "text text"', gap: '6px 12px', alignItems: 'center', padding: '10px 16px', borderTop: `1px solid ${t.lineSoft}`, '&:first-child': { borderTop: 'none' } },
+    attnChip: { gridArea: 'chip', justifySelf: 'start', minWidth: 0 },
+    attnAction: { gridArea: 'action', whiteSpace: 'nowrap' },
+    attnText: { gridArea: 'text', minWidth: 0 },
+    attnTitle: { margin: 0, fontFamily: fontBody, fontSize: s.md, fontWeight: 500, color: t.textHi, overflowWrap: 'break-word' },
+    attnDetail: { margin: '2px 0 0', fontFamily: fontMono, fontSize: s.sm, color: t.textLo, overflowWrap: 'break-word' },
     split: { display: 'grid', gap: 16, gridTemplateColumns: 'minmax(0, 1fr)', '@media (min-width: 1100px)': { gridTemplateColumns: 'minmax(0, 1fr) 340px' } },
     // lanes
     lanes: { width: '100%', borderCollapse: 'collapse' },

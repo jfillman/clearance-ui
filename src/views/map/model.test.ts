@@ -1,4 +1,4 @@
-import { withGateNames, buildMatrix, buildTopology, edgeWidth, gateWords, groupsOf, MATRIX_THRESHOLD, NO_FILTERS, registryEmpty, registryTiers, ROW_CAP, soleTarget, targetMatches, visibleAttention } from './model';
+import { groupAttention, withGateNames, buildMatrix, buildTopology, edgeWidth, gateWords, groupsOf, MATRIX_THRESHOLD, NO_FILTERS, registryEmpty, registryTiers, ROW_CAP, soleTarget, targetMatches, visibleAttention } from './model';
 import { fixture, liveFixture, scaledFixture, target } from './testFixture';
 import { segHitsRect, segments, segsCross } from './layout';
 import type { MapResponse } from './types';
@@ -46,12 +46,41 @@ describe('the Map layout model', () => {
     expect(g.expanded).toBe(true);
     expect(g.rows.map(r => r.target.id)).toEqual(['gate-api-prod', 'flight-api-prod']); // attention before ok
     expect(topo.groups[1].y).toBeGreaterThan(g.y + g.h - 1); // the next group moved down
-    expect(topo.edges).toHaveLength(6);
+    // the aggregate edge from g-argo to the header goes: the row edge says it, and nothing is hidden
+    expect(topo.edges).toHaveLength(5);
+    expect(topo.edges.find(e => e.edge.from === 'gate:g-argo' && e.edge.to === 'group:hangar-prod')).toBeUndefined();
+    expect(topo.edges.find(e => e.edge.from === 'gate:glidepath' && e.edge.to === 'group:hangar-prod')).toBeDefined(); // no row edge from this gate: the header edge is all there is
     const toRow = topo.edges.find(e => e.edge.to === 'target:gate-api-prod')!;
     const end = toRow.points[toRow.points.length - 1];
     expect(end.x).toBe(g.x);
     expect(end.y).toBeGreaterThan(g.rows[0].y);
     expect(end.y).toBeLessThan(g.rows[0].y + g.rows[0].h);
+  });
+
+  it('an open group with hidden rows keeps one aggregate edge per gate to its header, labelled with how many rows are hidden', () => {
+    const many = Array.from({ length: ROW_CAP + 5 }, (_, i) => target(`t${i}-prod`, 'hangar-prod'));
+    const m = fixture();
+    m.nodes.targets = many;
+    const drawn = buildTopology(m, NO_FILTERS, ['hangar-prod']).groups[0].rows.map(r => r.target);
+    m.edges = [
+      { from: 'gate:g-argo', to: 'group:hangar-prod', kind: 'guards', targets: many.length, volume: 50, refused: 0, holding: 0, status: 'ok' },
+      ...drawn.map((t): (typeof m.edges)[number] => ({ from: 'gate:g-argo', to: `target:${t.id}`, kind: 'guards', targets: 1, volume: 5, refused: 0, holding: 0, status: 'ok' })),
+    ];
+    const topo = buildTopology(m, NO_FILTERS, ['hangar-prod']);
+    const header = topo.edges.filter(e => e.edge.to === 'group:hangar-prod');
+    expect(header).toHaveLength(1);
+    expect(header[0].aggregate).toBe(5);
+    expect(topo.edges.filter(e => e.edge.to.startsWith('target:'))).toHaveLength(ROW_CAP);
+  });
+
+  it('a header edge with no row edge beside it is not labelled as a hidden-rows aggregate', () => {
+    const many = Array.from({ length: ROW_CAP + 5 }, (_, i) => target(`t${i}-prod`, 'hangar-prod'));
+    const m = fixture();
+    m.nodes.targets = many;
+    m.edges = [{ from: 'gate:g-argo', to: 'group:hangar-prod', kind: 'guards', targets: many.length, volume: 50, refused: 0, holding: 0, status: 'ok' }];
+    const topo = buildTopology(m, NO_FILTERS, ['hangar-prod']);
+    expect(topo.edges).toHaveLength(1);
+    expect(topo.edges[0].aggregate).toBeUndefined();
   });
 
   it('caps the rows of a big group and says how many are hidden', () => {
@@ -194,7 +223,8 @@ describe.each(layouts)('the topology layout of %s', (_name, make, open) => {
   it('labels an edge only where it says something and the label fits clear of every line and box', () => {
     for (const e of topo.edges) {
       if (!e.label) continue;
-      expect(e.edge.refused + e.edge.holding > 0 || e.edge.kind === 'watches').toBe(true);
+      expect(e.edge.kind === 'watches').toBe(false); // a blind or stale observer is said once, on the observer
+      expect(e.edge.refused + e.edge.holding > 0 || !!e.aggregate).toBe(true);
       const box = { x: e.label.x - e.label.w / 2, y: e.label.y - 11, w: e.label.w, h: 12 };
       for (const b of boxes) expect(!(box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y)).toBe(true);
     }
@@ -212,5 +242,38 @@ describe('the scaled registry is a page, not a wall', () => {
     expect(topo.groups).toHaveLength(5);
     expect(topo.observers).toHaveLength(3);
     expect(topo.width).toBeLessThan(1150);
+  });
+});
+
+describe('the same alert for several targets is one row', () => {
+  const blind = (t: string) => ({ kind: 'blind-observer', severity: 'down' as const, title: `observe-k8s/observe-k8s is blind on ${t}`, detail: 'lag', count: 1, targets: [t] });
+  it('merges per-target items by kind and wording, with a count and the targets listed', () => {
+    const m = fixture();
+    const targets = ['gate-api-prod', 'flight-api-prod', 'acct-prod'].map(id => m.nodes.targets.find(t => t.id === id)!);
+    const rows = groupAttention([blind('gate-api-prod'), blind('flight-api-prod'), blind('acct-prod'), m.attention[0]], targets);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].title).toBe('observe-k8s/observe-k8s is blind on 3 targets');
+    expect(rows[0].count).toBe(3);
+    expect(rows[0].targets).toHaveLength(3);
+    expect(rows[0].names).toEqual(['gate-api', 'flight-api', 'acct']);
+    expect(rows[1].kind).toBe('flag-mode');
+  });
+
+  it('a merged title that opens with a count takes the summed count, not the first item\'s', () => {
+    const m = fixture();
+    const hold = (t: string) => ({ kind: 'holding', severity: 'attention' as const, title: '1 change waiting on a person', detail: 'tier 2', count: 1, targets: [t] });
+    const rows = groupAttention([hold('gate-api-prod'), hold('flight-api-prod')], m.nodes.targets);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].title).toBe('2 change waiting on a person');
+    expect(rows[0].count).toBe(2);
+  });
+
+  it('leaves a lone item as it is and does not merge items with different wording', () => {
+    const m = fixture();
+    const one = groupAttention([blind('acct-prod')], m.nodes.targets);
+    expect(one[0].title).toBe('observe-k8s/observe-k8s is blind on acct-prod');
+    expect(one[0].names).toEqual([]);
+    const other = { ...blind('gate-api-prod'), detail: 'a different reason' };
+    expect(groupAttention([blind('acct-prod'), other], m.nodes.targets)).toHaveLength(2);
   });
 });

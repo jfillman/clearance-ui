@@ -141,3 +141,35 @@ export function assignLanes(routes: Route[], x0: number, x1: number): number[] {
   });
   return out;
 }
+
+export type Side = 'right' | 'left' | 'below' | 'above';
+
+/**
+ * Where a popover of `pop` size goes for a node, in viewport pixels: beside it (right, else left), else below or above,
+ * `gap` clear of the node on that side, so it never covers the node it describes and never sits under the pointer that
+ * opened it. The other axis is shifted to keep it inside the viewport (`pad` from each edge). When no side has room the
+ * side with the most is used anyway, still outside the node's box: a popover that spills off screen beats one that covers
+ * the node (it would swallow the click that opens a group).
+ */
+export function placePopover(node: Rect, pop: { w: number; h: number }, view: { w: number; h: number }, gap = 8, pad = 8): { x: number; y: number; side: Side } {
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+  const roomRight = view.w - pad - (node.x + node.w + gap);
+  const roomLeft = node.x - gap - pad;
+  const roomBelow = view.h - pad - (node.y + node.h + gap);
+  const roomAbove = node.y - gap - pad;
+  const at = (side: Side) => {
+    switch (side) {
+      case 'right':
+        return { x: node.x + node.w + gap, y: clamp(node.y, pad, view.h - pad - pop.h) };
+      case 'left':
+        return { x: node.x - gap - pop.w, y: clamp(node.y, pad, view.h - pad - pop.h) };
+      case 'below':
+        return { x: clamp(node.x, pad, view.w - pad - pop.w), y: node.y + node.h + gap };
+      default:
+        return { x: clamp(node.x, pad, view.w - pad - pop.w), y: node.y - gap - pop.h };
+    }
+  };
+  const fits: Array<[Side, boolean]> = [['right', roomRight >= pop.w], ['left', roomLeft >= pop.w], ['below', roomBelow >= pop.h], ['above', roomAbove >= pop.h]];
+  const side = fits.find(([, ok]) => ok)?.[0] ?? (([['right', roomRight], ['left', roomLeft], ['below', roomBelow], ['above', roomAbove]] as Array<[Side, number]>).sort((a, b) => b[1] - a[1])[0][0]);
+  return { ...at(side), side };
+}

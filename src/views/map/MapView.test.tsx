@@ -72,7 +72,7 @@ it('reads the Map for the window and draws gate types, groups and observers as f
   expect(screen.getByRole('button', { name: /Observer observe-aws .* status down/ })).toBeTruthy();
 });
 
-it('focusing a node opens its popover; Escape closes a pinned one', async () => {
+it('focusing a node opens its popover; Enter re-opens it and Escape closes it', async () => {
   await renderTab();
   const argo = screen.getByRole('button', { name: /Gate type Sync gate/ });
   await act(async () => {
@@ -105,6 +105,7 @@ it('labels every box: column heads, the gate type in words with its kind and ins
   expect(within(obs).getByText('1 blind')).toBeTruthy();
   // the legend explains the bars and lines
   expect(within(screen.getByRole('group', { name: 'Legend' })).getByText(/observer watching/)).toBeTruthy();
+  expect(within(screen.getByRole('group', { name: 'Legend' })).getByText(/moving dashes: decisions in the window/)).toBeTruthy();
 });
 
 describe('the hover popover does not flicker', () => {
@@ -404,4 +405,150 @@ describe('gate types are shown by name, never by id', () => {
       expect(screen.queryByText('acct-prod')).toBeNull();
     }
   });
+});
+
+describe('the popover is easy to open and easy to dismiss', () => {
+  const wait = (ms: number) => act(async () => { await new Promise(r => setTimeout(r, ms)); });
+  const dialogs = () => screen.queryAllByRole('dialog');
+  const argo = () => screen.getByRole('button', { name: /Gate type Sync gate/ });
+  const glide = () => screen.getByRole('button', { name: /Gate type Pull request gate/ });
+  const tf = () => screen.getByRole('button', { name: /Gate type Plan gate/ });
+  const group = () => screen.getByRole('button', { name: /Group hangar-prod/ });
+  const enter = (el: Element) => act(async () => { fireEvent.mouseEnter(el); });
+  const leave = (el: Element) => act(async () => { fireEvent.mouseLeave(el); });
+
+  it('is content-sized with a cap, not a fixed 780 px box', async () => {
+    await renderTab();
+    await enter(argo());
+    const pop = screen.getByTestId('map-popover');
+    const css = Array.from(document.querySelectorAll('style')).map(st => st.textContent ?? '').join('\n');
+    const cls = pop.className.split(/\s+/).find(k => k.includes('popover'))!;
+    const rule = css.match(new RegExp(`\\.${cls}\\s*\\{[^}]*\\}`))![0];
+    expect(rule).toMatch(/width: max-content/);
+    expect(rule).toMatch(/max-width: min\(360px, calc\(100vw - 16px\)\)/);
+    expect(css).not.toMatch(/width: 780px/);
+  });
+
+  it('closes on Escape, on a press outside, and on a scroll, but not on a press inside it', async () => {
+    await renderTab();
+    await enter(argo());
+    const pop = screen.getByTestId('map-popover');
+    await act(async () => { fireEvent.mouseDown(within(pop).getByRole('heading')); });
+    expect(dialogs()).toHaveLength(1);
+    await act(async () => { fireEvent.keyDown(document.body, { key: 'Escape' }); });
+    expect(dialogs()).toHaveLength(0);
+    await enter(argo());
+    await act(async () => { fireEvent.mouseDown(document.body); });
+    expect(dialogs()).toHaveLength(0);
+    await enter(argo());
+    await wait(300); // the focus a click puts on a node may scroll it into view: only a later scroll dismisses
+    await act(async () => { fireEvent.scroll(screen.getByRole('group', { name: /Coverage topology/ }).closest('div')!); });
+    expect(dialogs()).toHaveLength(0);
+  });
+
+  it('only one is open at a time: opening another replaces it', async () => {
+    await renderTab();
+    await enter(argo());
+    await enter(glide());
+    expect(dialogs()).toHaveLength(1);
+    expect(screen.getByRole('dialog', { name: 'Pull request gate details' })).toBeTruthy();
+  });
+
+  it('a fast sweep across several nodes leaves nothing stuck once the pointer is gone', async () => {
+    await renderTab();
+    const nodes = [argo(), glide(), tf(), group()];
+    for (let round = 0; round < 3; round++) {
+      for (const n of nodes) {
+        await enter(n);
+        expect(dialogs().length).toBeLessThanOrEqual(1);
+        await leave(n);
+      }
+    }
+    expect(dialogs()).toHaveLength(1); // the last is still within the hide delay
+    await wait(400);
+    expect(dialogs()).toHaveLength(0);
+  });
+
+  it('focus opens, blur closes, unless focus moved into the popover', async () => {
+    await renderTab();
+    await act(async () => { fireEvent.focus(argo()); });
+    const pop = screen.getByTestId('map-popover');
+    await act(async () => { fireEvent.blur(argo(), { relatedTarget: pop }); });
+    await wait(400);
+    expect(dialogs()).toHaveLength(1);
+    await act(async () => { fireEvent.blur(argo(), { relatedTarget: document.body }); });
+    await wait(400);
+    expect(dialogs()).toHaveLength(0);
+  });
+
+  it('a click on a group while its popover is open still toggles it, and the popover goes', async () => {
+    await renderTab();
+    await enter(group());
+    expect(dialogs()).toHaveLength(1);
+    await act(async () => { fireEvent.click(group()); });
+    await act(async () => {});
+    expect(screen.getByRole('button', { name: /Group hangar-prod.*Expanded/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(dialogs()).toHaveLength(0);
+  });
+});
+
+describe('the popover never covers the node it describes', () => {
+  const rect = (x: number, y: number, w: number, h: number) => ({ x, y, left: x, top: y, right: x + w, bottom: y + h, width: w, height: h, toJSON: () => ({}) });
+  const POP = { w: 360, h: 260 };
+  const VIEW = { w: 1280, h: 800 };
+  let node: Element | undefined;
+  let nodeRect = rect(0, 0, 0, 0);
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    Object.defineProperty(window, 'innerWidth', { value: VIEW.w, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: VIEW.h, configurable: true });
+    spy = jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.getAttribute('data-testid') === 'map-popover') return rect(0, 0, POP.w, POP.h) as DOMRect;
+      return (this === node ? nodeRect : rect(0, 0, 0, 0)) as DOMRect;
+    });
+  });
+  afterEach(() => spy.mockRestore());
+
+  const kinds: Array<[string, () => Element]> = [
+    ['gate', () => screen.getByRole('button', { name: /Gate type Sync gate/ })],
+    ['group', () => screen.getByRole('button', { name: /Group hangar-prod/ })],
+    ['observer', () => screen.getByRole('button', { name: /Observer observe-aws/ })],
+    ['target row', () => screen.getByRole('link', { name: /Open gate-api in hangar-prod/ })],
+  ];
+  const spots: Array<[string, number, number]> = [['top left', 0, 0], ['top right', 1100, 0], ['bottom left', 0, 740], ['bottom right', 1100, 740], ['middle', 600, 380], ['left edge, mid', 0, 380], ['right edge, mid', 1180, 380]];
+
+  it.each(kinds)('%s: the popover rect misses the node rect at every edge of the map', async (_name, find) => {
+    await renderTab();
+    await act(async () => { fireEvent.keyDown(screen.getByRole('button', { name: /Group hangar-prod/ }), { key: 'Enter' }); });
+    await act(async () => {});
+    for (const [, x, y] of spots) {
+      node = find();
+      nodeRect = rect(x, y, 100, 60);
+      await act(async () => { fireEvent.mouseEnter(node!); });
+      const pop = screen.getByTestId('map-popover');
+      const px = parseFloat(pop.style.left);
+      const py = parseFloat(pop.style.top);
+      const hit = px < nodeRect.right && px + POP.w > nodeRect.left && py < nodeRect.bottom && py + POP.h > nodeRect.top;
+      expect(hit).toBe(false);
+      expect(px).toBeGreaterThanOrEqual(0);
+      expect(px + POP.w).toBeLessThanOrEqual(VIEW.w);
+      expect(py).toBeGreaterThanOrEqual(0);
+      expect(py + POP.h).toBeLessThanOrEqual(VIEW.h);
+      await act(async () => { fireEvent.keyDown(document.body, { key: 'Escape' }); });
+    }
+  });
+});
+
+it('shows the same alert for several targets as one row with a count and the targets listed', async () => {
+  const blind = (t: string) => ({ kind: 'blind-observer', severity: 'down' as const, title: `observe-k8s/observe-k8s is blind on ${t}`, detail: 'lag', count: 1, targets: [t] });
+  current = fixture({ attention: [blind('gate-api-prod'), blind('flight-api-prod'), blind('acct-prod')] });
+  await renderTab();
+  const items = within(screen.getByRole('region', { name: 'Needs attention' })).getAllByRole('listitem');
+  expect(items).toHaveLength(1);
+  expect(screen.getByRole('region', { name: 'Needs attention' }).textContent).toMatch(/Needs attention\s*1(?!\d)/); // the count is the rows drawn, not the raw items
+  expect(screen.getByRole('button', { name: /Needs attention only/ }).textContent).toMatch(/1$/); // the chip counts rows too
+  expect(items[0].textContent).toContain('is blind on 3 targets');
+  expect(items[0].textContent).toContain('gate-api');
+  expect(items[0].textContent).toContain('flight-api');
+  expect(items[0].textContent).toContain('acct');
 });

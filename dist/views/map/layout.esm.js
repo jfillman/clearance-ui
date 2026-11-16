@@ -84,6 +84,28 @@ function assignLanes(routes, x0, x1) {
   });
   return out;
 }
+function placePopover(node, pop, view, gap = 8, pad = 8) {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+  const roomRight = view.w - pad - (node.x + node.w + gap);
+  const roomLeft = node.x - gap - pad;
+  const roomBelow = view.h - pad - (node.y + node.h + gap);
+  const roomAbove = node.y - gap - pad;
+  const at = (side2) => {
+    switch (side2) {
+      case "right":
+        return { x: node.x + node.w + gap, y: clamp(node.y, pad, view.h - pad - pop.h) };
+      case "left":
+        return { x: node.x - gap - pop.w, y: clamp(node.y, pad, view.h - pad - pop.h) };
+      case "below":
+        return { x: clamp(node.x, pad, view.w - pad - pop.w), y: node.y + node.h + gap };
+      default:
+        return { x: clamp(node.x, pad, view.w - pad - pop.w), y: node.y - gap - pop.h };
+    }
+  };
+  const fits = [["right", roomRight >= pop.w], ["left", roomLeft >= pop.w], ["below", roomBelow >= pop.h], ["above", roomAbove >= pop.h]];
+  const side = fits.find(([, ok]) => ok)?.[0] ?? [["right", roomRight], ["left", roomLeft], ["below", roomBelow], ["above", roomAbove]].sort((a, b) => b[1] - a[1])[0][0];
+  return { ...at(side), side };
+}
 
-export { assignLanes, fan, roundedPath, segHitsRect, segments, simplify };
+export { assignLanes, fan, placePopover, roundedPath, segHitsRect, segments, simplify };
 //# sourceMappingURL=layout.esm.js.map

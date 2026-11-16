@@ -51,7 +51,7 @@ const matchCount = (q, groupHit, mine, hits) => {
 const shownRows = (q, groupHit, mine, hits) => q ? mine.filter((t) => groupHit || hits(t)) : mine;
 const textWidth = (s) => s.length * 6.6 + 8;
 const labelText = (e) => {
-  if (e.kind === "watches") return { down: "blind", attention: "stale" }[e.status];
+  if (e.kind === "watches") return void 0;
   if (e.holding > 0) return `${e.holding} holding`;
   if (e.refused > 0) return `${e.refused} refused`;
   return void 0;
@@ -78,7 +78,14 @@ function buildTopology(map, filters, expanded) {
   }
   const preById = new Map(pre.map((p) => [p.node.id, p]));
   const rowOwner = new Map(pre.flatMap((p) => p.drawn.map((t) => [`target:${t.id}`, p])));
-  const usable = map.edges.map((edge, index) => ({ edge, index, owner: preById.get(edge.to) ?? rowOwner.get(edge.to) })).filter((e) => !!e.owner);
+  const candidates = map.edges.map((edge, index) => ({ edge, index, owner: preById.get(edge.to) ?? rowOwner.get(edge.to) })).filter((e) => !!e.owner);
+  const rowEdgeFrom = new Set(candidates.filter((e) => rowOwner.has(e.edge.to)).map((e) => `${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`));
+  const usable = candidates.filter((e) => {
+    const isHeader = e.edge.to === e.owner.node.id;
+    if (!isHeader || !e.owner.open || e.owner.drawn.length === 0 || e.owner.hidden > 0) return true;
+    return !rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`);
+  });
+  const aggregateOf = new Set(usable.filter((e) => e.edge.to === e.owner.node.id && e.owner.open && e.owner.hidden > 0 && e.owner.drawn.length > 0 && rowEdgeFrom.has(`${e.edge.from}>${e.owner.node.id}>${e.edge.kind}`)).map((e) => e.index));
   const inCount = /* @__PURE__ */ new Map();
   const outCount = /* @__PURE__ */ new Map();
   const bump = (m, k) => m.set(k, (m.get(k) ?? 0) + 1);
@@ -196,12 +203,12 @@ function buildTopology(map, filters, expanded) {
     const raw = sy === ty ? [{ x: xs, y: sy }, { x: xe, y: ty }] : [{ x: xs, y: sy }, { x: lane, y: sy }, { x: lane, y: ty }, { x: xe, y: ty }];
     const points = simplify(raw);
     const dim = r.src.dim || (r.row ? r.row.dim : r.group.dim) || filters.attentionOnly && r.edge.status === "ok";
-    return { id: `${r.edge.from}>${r.edge.to}`, edge: r.edge, points, d: roundedPath(points), width: g ? Math.min(edgeWidth(r.edge.volume), MAX_STROKE) : 1.5, dim };
+    return { id: `${r.edge.from}>${r.edge.to}`, edge: r.edge, points, d: roundedPath(points), width: g ? Math.min(edgeWidth(r.edge.volume), MAX_STROKE) : 1.5, dim, aggregate: aggregateOf.has(r.index) ? r.group.hiddenRows : void 0 };
   });
   const boxes = [...gates, ...groups, ...observers];
   const allSegs = edges.map((e) => segments(e.points));
   edges.forEach((e, ei) => {
-    const text = labelText(e.edge);
+    const text = e.aggregate ? `+${e.aggregate} hidden rows` : labelText(e.edge);
     if (!text) return;
     const w = textWidth(text);
     const segs = segments(e.points).filter((s) => s.a.y === s.b.y);
@@ -255,6 +262,35 @@ function visibleAttention(items, filters, targets) {
     return [item.title, item.detail, item.gate_type, item.gate_type ? gateName(item.gate_type) : void 0, item.instance, item.kind].some((v) => norm(v).includes(norm(q))) || names.some((t) => targetMatches(t, q));
   });
 }
+const escapeRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function groupAttention(items, targets) {
+  const nameOf = (id) => targets.find((t) => t.id === id || t.name === id)?.name ?? id;
+  const strip = (text, ids) => {
+    const words = [...new Set(ids.flatMap((id) => [id, nameOf(id)]))].sort((a, b) => b.length - a.length).filter(Boolean);
+    return words.length === 0 ? text : text.replace(new RegExp(`(?<![\\w-])(?:${words.map(escapeRe).join("|")})(?![\\w-])`, "g"), "[[target]]");
+  };
+  const rows = /* @__PURE__ */ new Map();
+  const out = [];
+  for (const it of items) {
+    const title = strip(it.title, it.targets).replace(new RegExp(`^${it.count}(?= )`), "[[count]]");
+    const detail = strip(it.detail, it.targets);
+    const key = it.targets.length === 0 ? `\0${out.length}` : [it.kind, it.severity, it.gate_type ?? "", it.instance ?? "", title, detail].join("");
+    const seen = rows.get(key);
+    if (!seen) {
+      const row = { ...it, targets: [...it.targets], names: it.targets.length > 1 ? it.targets.map(nameOf) : [] };
+      rows.set(key, { row, title, detail });
+      out.push(row);
+      continue;
+    }
+    seen.row.count += it.count;
+    seen.row.targets = [.../* @__PURE__ */ new Set([...seen.row.targets, ...it.targets])];
+    seen.row.names = seen.row.targets.map(nameOf);
+    seen.row.title = seen.title.split("[[target]]").join(plural(seen.row.targets.length, "target")).split("[[count]]").join(String(seen.row.count));
+    seen.row.detail = seen.detail.split("[[target]]").join(plural(seen.row.targets.length, "target"));
+  }
+  return out;
+}
+const plural = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
 function groupsOf(item, targets) {
   const ids = new Set(item.targets);
   return [...new Set(targets.filter((t) => ids.has(t.id) || ids.has(t.name)).map((t) => t.group))];
@@ -282,5 +318,5 @@ const COVERAGE_ORDER = ["authorized-and-verified", "observed-not-attributed", "o
 const lanePartials = (p) => p.filter((n) => n.field.startsWith("lanes"));
 const otherPartials = (p) => p.filter((n) => !n.field.startsWith("lanes"));
 
-export { COVERAGE_ORDER, EDGE_PITCH, MATRIX_THRESHOLD, NO_FILTERS, ROW_CAP, WINDOWS, buildMatrix, buildTopology, edgeWidth, gateName, gateWords, groupsOf, lanePartials, otherPartials, registryEmpty, registryTiers, soleTarget, statusRank, targetMatches, visibleAttention, withGateNames };
+export { COVERAGE_ORDER, EDGE_PITCH, MATRIX_THRESHOLD, NO_FILTERS, ROW_CAP, WINDOWS, buildMatrix, buildTopology, edgeWidth, gateName, gateWords, groupAttention, groupsOf, lanePartials, otherPartials, registryEmpty, registryTiers, soleTarget, statusRank, targetMatches, visibleAttention, withGateNames };
 //# sourceMappingURL=model.esm.js.map
