@@ -394,7 +394,7 @@ function RowDetail({ row, admin, onChanged, now }) {
     ] }),
     /* @__PURE__ */ jsxs(FactGrid, { min: 220, children: [
       /* @__PURE__ */ jsxs(Fact, { label: "When", children: [
-        /* @__PURE__ */ jsx(Time, { iso: row.ts }),
+        /* @__PURE__ */ jsx(Time, { iso: row.ts, standalone: true }),
         " (",
         relativeTime(row.ts, now),
         ")"

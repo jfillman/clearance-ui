@@ -284,7 +284,7 @@ export function OutcomePanel({ change }: { change: Change }) {
           {o.exception !== undefined && o.exception !== null && <Chip tone="bad">exception seq {o.exception}</Chip>}
         </div>
         <FactGrid min={220}>
-          <Fact label="When"><Time iso={o.at} /></Fact>
+          <Fact label="When"><Time iso={o.at} standalone /></Fact>
           {o.provider && <Fact label="Provider">{o.provider}</Fact>}
           {(o.digest || o.plan_digest) && <Fact label={o.plan_digest ? 'Plan digest' : 'Applied digest'}><span className={c.selectable}>{shortDigest(o.plan_digest ?? o.digest)}</span></Fact>}
           {o.release && <Fact label="Release"><span className={c.selectable}>{o.release}</span></Fact>}

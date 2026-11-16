@@ -230,7 +230,7 @@ function OutcomePanel({ change }) {
         ] })
       ] }),
       /* @__PURE__ */ jsxs(FactGrid, { min: 220, children: [
-        /* @__PURE__ */ jsx(Fact, { label: "When", children: /* @__PURE__ */ jsx(Time, { iso: o.at }) }),
+        /* @__PURE__ */ jsx(Fact, { label: "When", children: /* @__PURE__ */ jsx(Time, { iso: o.at, standalone: true }) }),
         o.provider && /* @__PURE__ */ jsx(Fact, { label: "Provider", children: o.provider }),
         (o.digest || o.plan_digest) && /* @__PURE__ */ jsx(Fact, { label: o.plan_digest ? "Plan digest" : "Applied digest", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: shortDigest(o.plan_digest ?? o.digest) }) }),
         o.release && /* @__PURE__ */ jsx(Fact, { label: "Release", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: o.release }) }),

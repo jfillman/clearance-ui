@@ -115,14 +115,14 @@ function AttestationDetail({ row, onOpenChange }) {
     ] }) }),
     /* @__PURE__ */ jsx(Section, { framed: true, level: 2, "aria-label": "Signer and log entry", title: "Signer and log entry", children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
       /* @__PURE__ */ jsxs(FactGrid, { min: 260, children: [
-        /* @__PURE__ */ jsx(Fact, { label: "Signed", children: /* @__PURE__ */ jsx(Time, { iso: row.signed_at }) }),
+        /* @__PURE__ */ jsx(Fact, { label: "Signed", children: /* @__PURE__ */ jsx(Time, { iso: row.signed_at, standalone: true }) }),
         keyless ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx(Fact, { label: "Signer", children: "keyless (Fulcio certificate in the bundle)" }),
           identity && /* @__PURE__ */ jsx(Fact, { label: "Certificate identity", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: identity }) }),
           issuer && /* @__PURE__ */ jsx(Fact, { label: "Certificate issuer", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: issuer }) })
         ] }) : /* @__PURE__ */ jsx(Fact, { label: "Key id", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: keyId || "\u2014" }) }),
         /* @__PURE__ */ jsx(Fact, { label: "Rekor log index", children: index === null || index === void 0 ? "not logged" : /* @__PURE__ */ jsx(RekorIndex, { index, url }) }),
-        integrated && /* @__PURE__ */ jsx(Fact, { label: "Log integrated", children: /* @__PURE__ */ jsx(Time, { iso: integrated }) }),
+        integrated && /* @__PURE__ */ jsx(Fact, { label: "Log integrated", children: /* @__PURE__ */ jsx(Time, { iso: integrated, standalone: true }) }),
         row.rekor_uuid && /* @__PURE__ */ jsx(Fact, { label: "Rekor uuid", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: row.rekor_uuid }) }),
         /* @__PURE__ */ jsx(Fact, { label: "DSSE digest", children: /* @__PURE__ */ jsx("span", { className: c.selectable, children: row.digest }) })
       ] }),

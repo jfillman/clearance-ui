@@ -18,8 +18,10 @@ import {
   TabError,
   TextLink,
   Time,
+  Tooltip,
   useClearanceRead,
   usePoll,
+  whenTitle,
   type StatusTone,
 } from '../../kit';
 import { MapLanes, type LaneRow } from './MapLanes';
@@ -255,7 +257,7 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
   return (
     <>
       <FilterBar
-        end={<Count>{map.error ? 'refresh failed · ' : ''}live · updated {iso ? `${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago` : '…'}</Count>}
+        end={<Count>{map.error ? 'refresh failed · ' : ''}live · updated {iso ? <Tooltip title={whenTitle(iso)}><span>{`${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago`}</span></Tooltip> : '…'}</Count>}
       >
         <WindowChips value={win} onChange={onWindow} />
         <FilterChips label="View" options={[{ id: 'topology', label: 'Topology' }, { id: 'lanes', label: 'Lanes' }]} value={view} onChange={setView} />

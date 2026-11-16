@@ -469,7 +469,7 @@ function RowDetail({ row, admin, onChanged, now }: { row: Row; admin: boolean; o
         <Count>seq {row.seq}{row.scope ? ` · ${row.scope}` : ''}</Count>
       </div>
       <FactGrid min={220}>
-        <Fact label="When"><Time iso={row.ts} /> ({relativeTime(row.ts, now)})</Fact>
+        <Fact label="When"><Time iso={row.ts} standalone /> ({relativeTime(row.ts, now)})</Fact>
         <Fact label="Actor">{row.actor || 'not attributed'}</Fact>
         <Fact label="What changed">{row.diff || 'no detail recorded'}</Fact>
         <Fact label="Resolution history">

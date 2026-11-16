@@ -111,8 +111,11 @@ function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSinc
         ] }),
         staleSince !== void 0 && /* @__PURE__ */ jsxs(Count, { children: [
           "read ",
-          relativeTime(new Date(staleSince).toISOString(), nowMs),
-          " ago; Clearance did not answer the latest try.",
+          /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(new Date(staleSince).toISOString()), children: /* @__PURE__ */ jsxs("span", { children: [
+            relativeTime(new Date(staleSince).toISOString(), nowMs),
+            " ago"
+          ] }) }),
+          "; Clearance did not answer the latest try.",
           retry
         ] })
       ] }),

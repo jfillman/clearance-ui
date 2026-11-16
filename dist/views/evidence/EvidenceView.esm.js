@@ -1,7 +1,7 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { clock, utcDateTime, relativeTime, shortPrincipal } from '../../kit/format.esm.js';
+import { clock, utcDateTime, relativeTime, whenTitle, shortPrincipal } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
 import { useTableKit, FilterBar, FilterChips, FilterSelect, FilterInput, SearchField, Count, Hint, Tooltip, Section, TabError, PanelSkeleton, EmptyNote, Chip, StatusChip, Button, Callout, TextLink, YamlBlock } from '../../kit/kit.esm.js';
@@ -151,7 +151,7 @@ function EvidenceView({ now: nowProp, initialApp }) {
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: r.seq }) }),
           /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
             /* @__PURE__ */ jsx(Tooltip, { title: utcDateTime(r.ts, true), children: /* @__PURE__ */ jsx("span", { className: tk.meta, children: clock(r.ts) }) }),
-            /* @__PURE__ */ jsx("div", { className: tk.meta, children: relativeTime(r.ts, now) })
+            /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(r.ts), children: /* @__PURE__ */ jsx("div", { className: tk.meta, children: relativeTime(r.ts, now) }) })
           ] }),
           /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
             /* @__PURE__ */ jsx("span", { className: tk.meta, children: shortPrincipal(r.principal) }),

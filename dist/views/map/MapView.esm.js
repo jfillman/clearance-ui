@@ -1,9 +1,9 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
 import '@material-ui/core/styles';
-import { relativeTime } from '../../kit/format.esm.js';
+import { relativeTime, whenTitle } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
-import { TabError, PanelSkeleton, Section, EmptyNote, Hint, Chip, Callout, TextLink, FilterBar, FilterChips, FilterGroup, FilterChip, SearchField, Count, StatusChip } from '../../kit/kit.esm.js';
+import { TabError, PanelSkeleton, Section, EmptyNote, Hint, Chip, Callout, TextLink, FilterBar, FilterChips, FilterGroup, FilterChip, SearchField, Count, Tooltip, StatusChip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -211,7 +211,7 @@ function MapView({ win, onWindow, onOpenTarget }) {
         end: /* @__PURE__ */ jsxs(Count, { children: [
           map.error ? "refresh failed \xB7 " : "",
           "live \xB7 updated ",
-          iso ? `${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago` : "\u2026"
+          iso ? /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(iso), children: /* @__PURE__ */ jsx("span", { children: `${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago` }) }) : "\u2026"
         ] }),
         children: [
           /* @__PURE__ */ jsx(WindowChips, { value: win, onChange: onWindow }),

@@ -144,7 +144,7 @@ export function ClearanceDetail({ change, onChanged }: { change: Change; onChang
           {change.deny_reason && <Fact label="Denied">{shortPrincipal(change.denied_by)}: {change.deny_reason}</Fact>}
           <Fact label="Checks">{Object.entries(change.checks).map(([k, v]) => `${k} ${v}`).join(' · ')}</Fact>
           <Fact label="Binds to">head {change.head.slice(0, 12)} · tree {change.tree_digest.slice(0, 12)} · {change.objects.length} object(s) · policy {change.policy_version}{change.repo_policy_digest ? ' + clearance.yaml' : ''}</Fact>
-          <Fact label="Expires"><Time iso={change.expires_at} /></Fact>
+          <Fact label="Expires"><Time iso={change.expires_at} standalone /></Fact>
         </FactGrid>
         {change.state === 'holding' && (
           <div className={c.actions}>

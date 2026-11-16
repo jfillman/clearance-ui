@@ -1479,10 +1479,16 @@ declare function ExpandRow({ id, open, onToggle, colSpan, children, details, lab
 /**
  * A moment as the viewer's local time, with the UTC value on hover. The one way a view shows a time as text (W-11):
  * `format` picks the date and time (default), a compact month-day-minute for a table cell, or the time of day.
+ *
+ * Keyboard and screen readers: the UTC value is in the element's own text (visually hidden), so it is read with the
+ * time and needs no tab stop. A time that stands alone as a fact (a detail pane) passes `standalone`, which makes it
+ * focusable so the kit Tooltip also opens on keyboard focus; times inside table rows and running sentences are not
+ * focusable (a stop per row would bury the table's own controls).
  */
-declare function Time({ iso, format }: {
+declare function Time({ iso, format, standalone }: {
     iso: string | null | undefined;
     format?: 'full' | 'short' | 'clock';
+    standalone?: boolean;
 }): react.JSX.Element | null;
 
 type ClearanceView = 'clearances' | 'evidence' | 'exceptions' | 'attestations' | 'map' | 'policy';

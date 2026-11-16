@@ -138,7 +138,7 @@ export function AttestationDetail({ row, onOpenChange }: { row: AttestationRow; 
       <Section framed level={2} aria-label="Signer and log entry" title="Signer and log entry">
         <div className={c.pad}>
           <FactGrid min={260}>
-            <Fact label="Signed"><Time iso={row.signed_at} /></Fact>
+            <Fact label="Signed"><Time iso={row.signed_at} standalone /></Fact>
             {keyless ? (
               <>
                 <Fact label="Signer">keyless (Fulcio certificate in the bundle)</Fact>
@@ -149,7 +149,7 @@ export function AttestationDetail({ row, onOpenChange }: { row: AttestationRow; 
               <Fact label="Key id"><span className={c.selectable}>{keyId || '—'}</span></Fact>
             )}
             <Fact label="Rekor log index">{index === null || index === undefined ? 'not logged' : <RekorIndex index={index} url={url} />}</Fact>
-            {integrated && <Fact label="Log integrated"><Time iso={integrated} /></Fact>}
+            {integrated && <Fact label="Log integrated"><Time iso={integrated} standalone /></Fact>}
             {row.rekor_uuid && <Fact label="Rekor uuid"><span className={c.selectable}>{row.rekor_uuid}</span></Fact>}
             <Fact label="DSSE digest"><span className={c.selectable}>{row.digest}</span></Fact>
           </FactGrid>

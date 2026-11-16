@@ -137,7 +137,7 @@ function ClearanceDetail({ change, onChanged }) {
               change.policy_version,
               change.repo_policy_digest ? " + clearance.yaml" : ""
             ] }),
-            /* @__PURE__ */ jsx(Fact, { label: "Expires", children: /* @__PURE__ */ jsx(Time, { iso: change.expires_at }) })
+            /* @__PURE__ */ jsx(Fact, { label: "Expires", children: /* @__PURE__ */ jsx(Time, { iso: change.expires_at, standalone: true }) })
           ] }),
           change.state === "holding" && /* @__PURE__ */ jsxs("div", { className: c.actions, children: [
             /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: busy, onClick: () => act(() => write.clearChange(change.id)), children: "Clear as you" }),

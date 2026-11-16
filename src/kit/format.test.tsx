@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { clock, dateTime, dateTimeShort, utcDateTime, whenTitle } from './format';
 import { Time } from './Time';
 
@@ -52,6 +52,27 @@ describe('local time with UTC beside it', () => {
     const text = screen.getByText(new Date(ISO).toLocaleString());
     fireEvent.mouseOver(text);
     expect(await screen.findByText('2026-11-16 14:13:42Z')).toBeTruthy();
+  });
+
+  it('<Time> carries the UTC value in its own text for assistive technology, with no tab stop', () => {
+    render(<table><tbody><tr><td><Time iso={ISO} /></td><td><Time iso={ISO} format="short" /></td></tr></tbody></table>);
+    const times = document.querySelectorAll('time');
+    expect(times).toHaveLength(2);
+    for (const t of times) {
+      expect(t.getAttribute('datetime')).toBe(ISO);
+      expect(t.textContent).toContain('(UTC 2026-11-16 14:13:42Z)');
+      expect(t.hasAttribute('tabindex')).toBe(false);
+    }
+    expect(document.querySelectorAll('[tabindex]')).toHaveLength(0);
+  });
+
+  it('<Time standalone> (a fact in a detail pane) is focusable so the tooltip opens from the keyboard', async () => {
+    render(<Time iso={ISO} standalone />);
+    const t = document.querySelector('time') as HTMLElement;
+    expect(t.getAttribute('tabindex')).toBe('0');
+    fireEvent.keyDown(document.body, { key: 'Tab' }); // keyboard modality, as MUI's focus-visible needs
+    act(() => t.focus());
+    expect(await screen.findByRole('tooltip')).toBeTruthy();
   });
 
   it('<Time> shows nothing for no time and the raw text for a non-date', () => {

@@ -1,4 +1,4 @@
-import { Callout, Card, Chip, EmptyNote, Hint, PanelSkeleton, relativeTime, Section, StatusChip, TabError, TextLink, TierBadge, useTableKit, type EvidenceRecord, type StatusTone } from '../../kit';
+import { Callout, Card, Chip, EmptyNote, Hint, PanelSkeleton, relativeTime, Section, StatusChip, TabError, TextLink, TierBadge, Tooltip, useTableKit, whenTitle, type EvidenceRecord, type StatusTone } from '../../kit';
 import { EmptyRegistry, useMap, WindowChips } from './MapView';
 import { MapLanes } from './MapLanes';
 import { CoverageMix, ModeChip, statusTone, statusWord, useClock } from './parts';
@@ -38,7 +38,7 @@ function ObserverRow({ o, now }: { o: ObserverRef; now: number }) {
         <span className={c.rowName}>{o.provider}</span>
         <span className={c.rowMeta}>
           {o.source !== o.provider ? `${o.source} · ` : ''}
-          {o.last_ts ? `health record ${relativeTime(o.last_ts, now)} ago` : 'never seen: no health record'}
+          {o.last_ts ? <Tooltip title={whenTitle(o.last_ts)}><span>{`health record ${relativeTime(o.last_ts, now)} ago`}</span></Tooltip> : 'never seen: no health record'}
           {o.failed_checks.length > 0 ? ` · failing: ${o.failed_checks.join(', ')}` : ''}
         </span>
       </div>
@@ -65,7 +65,7 @@ function RecordRow({ r, now, exception }: { r: EvidenceRecord; now: number; exce
         <span className={c.rowName}>{r.tool}</span>
         {recordLine(r) && <span className={c.rowMeta}>{recordLine(r)}</span>}
       </div>
-      <span className={c.rowMeta}>seq {r.seq.toLocaleString()} · {relativeTime(r.ts, now)} ago</span>
+      <span className={c.rowMeta}>seq {r.seq.toLocaleString()} · <Tooltip title={whenTitle(r.ts)}><span>{relativeTime(r.ts, now)} ago</span></Tooltip></span>
     </li>
   );
 }
