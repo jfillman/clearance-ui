@@ -57,3 +57,12 @@ it('every component of a host gets the same read object (what the shared coverag
   const b = renderHook(() => useClearanceRead(), { wrapper: wrap(t) });
   expect(a.result.current).toBe(b.result.current);
 });
+
+it('the fake transport hands the signal to the answer and rejects with an AbortError when it fires', async () => {
+  const t = createFakeTransport(() => new Promise(() => {}));
+  const ac = new AbortController();
+  const p = t.get('/v1/a', undefined, { signal: ac.signal });
+  ac.abort();
+  await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+  expect(t.calls[0].signal).toBe(ac.signal);
+});

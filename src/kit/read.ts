@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { TransportError, useClearanceTransport, type ClearanceTransport, type Query } from './transport';
+import { TransportError, useClearanceTransport, type ClearanceTransport, type Query, type ReadOptions } from './transport';
 
 // Reads from clearance-api through the host's transport (in Backstage: the clearance backend, /api/clearance/v1/*,
 // which forwards them for the signed-in person: the delegate model). Every read is scoped by Clearance to that
@@ -16,7 +16,7 @@ export class ReadError extends Error {
 }
 
 export interface ClearanceRead {
-  get<T>(path: string, params?: Params): Promise<T>;
+  get<T>(path: string, params?: Params, opts?: ReadOptions): Promise<T>;
   /** The answer's body exactly as served, for a file the person saves (the attestation bundle): nothing is re-encoded. */
   getText(path: string): Promise<string>;
 }
@@ -29,9 +29,9 @@ function readFor(transport: ClearanceTransport): ClearanceRead {
   let read = reads.get(transport);
   if (!read) {
     read = {
-      async get<T>(path: string, params?: Params): Promise<T> {
+      async get<T>(path: string, params?: Params, opts?: ReadOptions): Promise<T> {
         try {
-          return await transport.get<T>(path, params);
+          return await transport.get<T>(path, params, opts);
         } catch (e) {
           if (e instanceof TransportError) throw new ReadError(e.body?.error ?? `${path} failed with ${e.status}`, e.status, e.retryAfterMs);
           throw e;

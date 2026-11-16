@@ -1,10 +1,10 @@
-import { TransportError, parseRetryAfter, type ClearanceTransport, type Query } from './transport';
+import { TransportError, parseRetryAfter, type ClearanceTransport, type Query, type ReadOptions } from './transport';
 
 // A ClearanceTransport over any fetch-shaped function: the host-agnostic transport. The standalone shell
 // (app/src/transport.ts) builds it on same-origin fetch to `clearance web`; tests build it on a mock. A host that has
 // its own client (Backstage's discovery and fetch APIs) writes its own adapter instead.
 
-export type FetchLike = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<Response>;
+export type FetchLike = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<Response>;
 
 export interface FetchTransportOptions {
   fetch: FetchLike;
@@ -14,11 +14,12 @@ export interface FetchTransportOptions {
 
 export function createFetchTransport({ fetch, url }: FetchTransportOptions): ClearanceTransport {
   return {
-    async get<T>(path: string, query?: Query): Promise<T> {
+    async get<T>(path: string, query?: Query, opts?: ReadOptions): Promise<T> {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(query ?? {})) if (v !== undefined && v !== '') q.set(k, String(v));
       const qs = q.toString();
-      const res = await fetch(`${await url(path, 'read')}${qs ? `?${qs}` : ''}`);
+      const target = `${await url(path, 'read')}${qs ? `?${qs}` : ''}`;
+      const res = await (opts?.signal ? fetch(target, { signal: opts.signal }) : fetch(target));
       const body = await res.json().catch(() => undefined);
       if (!res.ok) throw new TransportError(path, res.status, body, undefined, parseRetryAfter(res.headers?.get('Retry-After')));
       return body as T;

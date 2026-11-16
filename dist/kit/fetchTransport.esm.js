@@ -2,11 +2,12 @@ import { TransportError, parseRetryAfter } from './transport.esm.js';
 
 function createFetchTransport({ fetch, url }) {
   return {
-    async get(path, query) {
+    async get(path, query, opts) {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(query ?? {})) if (v !== void 0 && v !== "") q.set(k, String(v));
       const qs = q.toString();
-      const res = await fetch(`${await url(path, "read")}${qs ? `?${qs}` : ""}`);
+      const target = `${await url(path, "read")}${qs ? `?${qs}` : ""}`;
+      const res = await (opts?.signal ? fetch(target, { signal: opts.signal }) : fetch(target));
       const body = await res.json().catch(() => void 0);
       if (!res.ok) throw new TransportError(path, res.status, body, void 0, parseRetryAfter(res.headers?.get("Retry-After")));
       return body;

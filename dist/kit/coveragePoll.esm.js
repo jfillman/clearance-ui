@@ -7,6 +7,7 @@ const COVERAGE_BACKOFF_BASE_MS = 5e3;
 const COVERAGE_BACKOFF_CAP_MS = 12e4;
 const COVERAGE_RETRY_AFTER_MAX_MS = 60 * 6e4;
 const COVERAGE_REQUEST_MS = 3e4;
+const COVERAGE_ABORT_GRACE_MS = 1e4;
 const COVERAGE_CONCURRENCY = 1;
 const JITTER = 0.2;
 const isBusyStatus = (status) => status === 503 || status === 429 || status === 504 || status === 502 || status === 408;
@@ -22,13 +23,6 @@ const statusOf = (e) => {
   const v = e && typeof e === "object" ? e.status : void 0;
   return typeof v === "number" ? v : void 0;
 };
-function withDeadline(p, ms) {
-  let timer;
-  const expired = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error("coverage read timed out")), ms);
-  });
-  return Promise.race([p, expired]).finally(() => clearTimeout(timer));
-}
 class CoveragePoller {
   constructor(api, opts = {}) {
     this.api = api;
@@ -52,7 +46,7 @@ class CoveragePoller {
     let e = this.entries.get(k);
     if (!e) {
       this.prune();
-      e = { scope, from, snap: { busy: false, loading: true }, subscribers: /* @__PURE__ */ new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false };
+      e = { scope, from, snap: { busy: false, loading: true }, subscribers: /* @__PURE__ */ new Set(), nextAt: 0, failures: 0, inflight: false, queued: false, refreshPending: false, cancelled: false };
       this.entries.set(k, e);
     }
     const first = e.subscribers.size === 0;
@@ -72,6 +66,10 @@ class CoveragePoller {
         e.nextAt = Number.POSITIVE_INFINITY;
         e.queued = false;
         this.queue = this.queue.filter((q) => q !== e);
+        if (e.inflight && e.abort) {
+          e.cancelled = true;
+          e.abort.abort();
+        }
         if (![...this.entries.values()].some((x) => x.subscribers.size > 0)) this.unlisten();
       }
     };
@@ -155,24 +153,50 @@ class CoveragePoller {
     e.inflight = true;
     e.snap = { ...e.snap, loading: true };
     this.notify(e);
+    const ac = new AbortController();
+    e.abort = ac;
+    let timedOut = false;
+    let timer;
     try {
-      const data = await withDeadline(this.api.get("/v1/coverage", { scope: e.scope, from: e.from }), COVERAGE_REQUEST_MS);
+      const req = this.api.get("/v1/coverage", { scope: e.scope, from: e.from }, { signal: ac.signal });
+      req.catch(() => {
+      });
+      const expired = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          ac.abort();
+          reject(new Error("coverage read timed out"));
+        }, COVERAGE_REQUEST_MS);
+      });
+      const data = await Promise.race([req, expired]);
       e.failures = 0;
       e.snap = { data, updatedAt: this.now(), busy: false, loading: false };
       e.nextAt = this.now() + COVERAGE_POLL_MS;
     } catch (err) {
-      e.failures++;
-      const status = statusOf(err);
-      const busy = status === void 0 || isBusyStatus(status);
-      const delay = busy ? retryDelayMs(e.failures, retryAfterOf(err)) * (1 + JITTER * this.random()) : COVERAGE_POLL_MS;
-      e.nextAt = this.now() + delay;
-      e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : void 0, loading: false };
-    } finally {
-      e.inflight = false;
-      if (e.refreshPending) {
-        e.refreshPending = false;
-        e.nextAt = this.now();
+      if (e.cancelled) {
+        e.snap = { ...e.snap, loading: false };
+      } else {
+        e.failures++;
+        const status = statusOf(err);
+        const busy = status === void 0 || isBusyStatus(status);
+        const delay = busy ? retryDelayMs(e.failures, retryAfterOf(err)) * (1 + JITTER * this.random()) : COVERAGE_POLL_MS;
+        e.nextAt = this.now() + delay;
+        e.snap = { ...e.snap, failure: err, busy, retryAt: busy ? e.nextAt : void 0, loading: false };
       }
+    } finally {
+      clearTimeout(timer);
+    }
+    if (timedOut) this.notify(e);
+    if (timedOut || e.cancelled) await new Promise((resolve) => setTimeout(resolve, COVERAGE_ABORT_GRACE_MS));
+    e.inflight = false;
+    e.abort = void 0;
+    if (e.cancelled) {
+      e.cancelled = false;
+      if (e.subscribers.size > 0) e.nextAt = this.now();
+    }
+    if (e.refreshPending) {
+      e.refreshPending = false;
+      e.nextAt = this.now();
     }
     this.notify(e);
   }
@@ -213,5 +237,5 @@ function useCoveragePoll(api, scope, from, poller = coveragePollerFor(api)) {
   };
 }
 
-export { COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll };
+export { COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, CoveragePoller, coveragePollerFor, isBusyStatus, retryDelayMs, useCoveragePoll };
 //# sourceMappingURL=coveragePoll.esm.js.map
