@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { dateTime, relativeTime } from './format';
@@ -6,6 +7,7 @@ import { useMountedNow } from './now';
 import { useClearanceRead, type ClearanceRead } from './read';
 import { fontMono, fontScale, tokensForTheme } from './tokens';
 import type { CoverageHealth, CoverageStatement, ScopeList } from './types';
+import { useCoveragePoll, type CoverageRead } from './coveragePoll';
 import { usePoll } from './usePoll';
 
 // The coverage banner (O-5, board C2/T1): one scope's coverage statement as healthy, degraded or blind, with the
@@ -71,10 +73,50 @@ export function readDeniedText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function CoverageBanner({ scope, statement, error, now }: { scope: string; statement?: CoverageStatement; error?: unknown; now?: number }) {
+/** "5 s" or "2 min": a wait in words. */
+const waitText = (ms: number): string => (ms < 60_000 ? `${Math.max(1, Math.ceil(ms / 1000))} s` : `${Math.ceil(ms / 60_000)} min`);
+
+/** The time now, re-read every second while `on`: a countdown needs it, nothing else here does. */
+function useTicking(on: boolean): number {
+  const [t, setT] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return undefined;
+    setT(Date.now());
+    const id = setInterval(() => setT(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [on]);
+  return t;
+}
+
+function BusyBanner({ scope, retry }: { scope: string; retry: string }) {
+  const c = useStyles();
+  return (
+    <Callout tone="neutral" role="region" aria-label={`Coverage of ${scope}`} data-state="computing" title={<span className={c.top}>{scope} <StatusChip tone="neutral">computing…</StatusChip></span>}>
+      Coverage is being computed.{retry}
+    </Callout>
+  );
+}
+
+export interface CoverageBannerProps {
+  scope: string;
+  statement?: CoverageStatement;
+  error?: unknown;
+  now?: number;
+  /** The server is busy or timed out and there is no answer yet: say it is being computed, not that it is unavailable. */
+  busy?: boolean;
+  /** When the next try is due (ms since the epoch). */
+  retryAt?: number;
+  /** When `statement` was read, when the last try failed and this is what was known before it. */
+  staleSince?: number;
+}
+
+export function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSince }: CoverageBannerProps) {
   const c = useStyles();
   const at = useMountedNow(now);
+  const nowMs = useTicking(retryAt !== undefined || staleSince !== undefined);
+  const retry = retryAt === undefined ? '' : ` Retrying in ${waitText(retryAt - nowMs)}.`;
   if (!statement) {
+    if (busy) return <BusyBanner scope={scope} retry={retry} />;
     return (
       <Callout tone="neutral" role="region" aria-label={`Coverage of ${scope}`} data-state={error ? 'unavailable' : 'loading'} title={<span className={c.top}>{scope} {error ? <StatusChip tone="neutral">coverage unavailable</StatusChip> : <StatusChip tone="neutral">reading…</StatusChip>}</span>}>
         {error ? readDeniedText(error) : undefined}
@@ -98,6 +140,7 @@ export function CoverageBanner({ scope, statement, error, now }: { scope: string
           <StatusChip tone={healthTone(s.state)} dot>{s.state}</StatusChip>
           {s.since && <Tooltip title={dateTime(s.since)}><Count>since {relativeTime(s.since, at)} ago</Count></Tooltip>}
           <Count>{statement.seen_not_cleared.count} seen, not cleared · {statement.cleared_and_verified.count} cleared and verified</Count>
+          {staleSince !== undefined && <Count>read {relativeTime(new Date(staleSince).toISOString(), nowMs)} ago; Clearance did not answer the latest try.{retry}</Count>}
         </span>
       }
     >
@@ -117,15 +160,18 @@ export function useScopes() {
   return usePoll<ScopeList>('scopes', () => api.get<ScopeList>('/scopes'), 0);
 }
 
-/** The coverage statement of one scope, refreshed every minute (the last day unless `from` says otherwise). */
-export function useCoverage(api: ClearanceRead, scope: string | undefined, from?: string) {
-  return usePoll<CoverageStatement | undefined>(`coverage:${scope ?? ''}:${from ?? ''}`, async () => (scope ? api.get<CoverageStatement>('/v1/coverage', { scope, from }) : undefined), 60_000);
+/**
+ * The coverage statement of one scope (the last day unless `from` says otherwise), read by the shared poller: one
+ * request per (scope, from) however many components show it, one scope at a time, every 5 minutes, with back-off.
+ */
+export function useCoverage(api: ClearanceRead, scope: string | undefined, from?: string): CoverageRead {
+  return useCoveragePoll(api, scope, from);
 }
 
 function ScopeBanner({ scope }: { scope: string }) {
   const api = useClearanceRead();
   const cov = useCoverage(api, scope);
-  return <CoverageBanner scope={scope} statement={cov.data} error={cov.data ? undefined : cov.failure} />;
+  return <CoverageBanner scope={scope} statement={cov.data} error={cov.error} busy={cov.busy} retryAt={cov.retryAt} staleSince={cov.stale ? cov.updatedAt : undefined} />;
 }
 
 /** A banner for each scope Clearance names (or `only`, to show one app's). Nothing when there is no scope to show. */

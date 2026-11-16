@@ -577,7 +577,7 @@ function ExceptionsView({ now: nowProp, initialScope }) {
     return next;
   });
   const pickedRows = [...picked].map((k) => byKey.get(k)).filter((r) => !!r);
-  const readError = scopes.failure ?? (cov.data ? void 0 : cov.failure) ?? (obs.data ? void 0 : obs.failure);
+  const readError = scopes.failure ?? (cov.busy ? void 0 : cov.error) ?? (obs.data ? void 0 : obs.failure);
   const denied = statusOf(readError) === 403;
   const filterEnd = /* @__PURE__ */ jsxs(Fragment, { children: [
     query.trim() && /* @__PURE__ */ jsx("span", { role: "status", "aria-live": "polite", children: /* @__PURE__ */ jsxs(Count, { children: [
@@ -608,7 +608,7 @@ function ExceptionsView({ now: nowProp, initialScope }) {
       " in Backstage's config until it does."
     ] }),
     readError !== void 0 && /* @__PURE__ */ jsx(TabError, { error: new Error(readDeniedText(readError)), what: "exceptions" }),
-    active && /* @__PURE__ */ jsx(CoverageBanner, { scope: active, statement: cov.data, error: cov.data ? void 0 : cov.failure, now }),
+    active && /* @__PURE__ */ jsx(CoverageBanner, { scope: active, statement: cov.data, error: cov.error, busy: cov.busy, retryAt: cov.retryAt, staleSince: cov.stale ? cov.updatedAt : void 0, now }),
     /* @__PURE__ */ jsx("div", { className: `${c.notice} ${fading ? c.noticeFading : ""}`, role: "status", "aria-live": "polite", style: notice ? void 0 : { position: "absolute", width: 1, height: 1, overflow: "hidden" }, children: notice && /* @__PURE__ */ jsx(Callout, { tone: "ok", role: "presentation", children: notice }) }),
     admin && /* @__PURE__ */ jsx(
       BulkResolve,

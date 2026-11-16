@@ -13,6 +13,7 @@ export * from './read';
 export * from './write';
 export * from './ProductMark';
 export * from './coverage';
+export * from './coveragePoll';
 export * from './Pager';
 export * from './tiers';
 export * from './ExpandRow';
