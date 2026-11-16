@@ -278,11 +278,10 @@ function groupAttention(items, targets) {
     const seen = rows.get(key);
     if (!seen) {
       const row = { ...it, targets: [...it.targets], names: it.targets.length > 1 ? it.targets.map(nameOf) : [] };
-      rows.set(key, { row, n: 1, title, detail });
+      rows.set(key, { row, title, detail });
       out.push(row);
       continue;
     }
-    seen.n++;
     seen.row.count += it.count;
     seen.row.targets = [.../* @__PURE__ */ new Set([...seen.row.targets, ...it.targets])];
     seen.row.names = seen.row.targets.map(nameOf);

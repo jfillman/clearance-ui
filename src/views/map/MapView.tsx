@@ -184,7 +184,8 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
   const empty = registryEmpty(data);
   const iso = map.updatedAt ? new Date(map.updatedAt).toISOString() : undefined;
   const lanes = lanesRows(data, scopeGate, setScopeGate, topo?.targets ?? []);
-  const attnCount = data.attention.filter(a => a.severity !== 'info').length;
+  // the chip counts what the panel lists: alerts merged into rows, not raw items
+  const attnCount = groupAttention(data.attention.filter(a => a.severity !== 'info'), data.nodes.targets).length;
 
   let body: ReactNode;
   if (empty) {

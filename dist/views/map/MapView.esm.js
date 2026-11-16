@@ -16,7 +16,7 @@ import '../../kit/ExpandRow.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { MapMatrix } from './MapMatrix.esm.js';
 import { MapTopology, MapLegend } from './MapTopology.esm.js';
-import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, otherPartials, gateName, WINDOWS, groupAttention, soleTarget, groupsOf, withGateNames } from './model.esm.js';
+import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, groupAttention, otherPartials, gateName, WINDOWS, soleTarget, groupsOf, withGateNames } from './model.esm.js';
 import { useClock, softBreaks } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';
 
@@ -132,7 +132,7 @@ function MapView({ win, onWindow, onOpenTarget }) {
   const empty = registryEmpty(data);
   const iso = map.updatedAt ? new Date(map.updatedAt).toISOString() : void 0;
   const lanes = lanesRows(data, scopeGate, setScopeGate, topo?.targets ?? []);
-  const attnCount = data.attention.filter((a) => a.severity !== "info").length;
+  const attnCount = groupAttention(data.attention.filter((a) => a.severity !== "info"), data.nodes.targets).length;
   let body;
   if (empty) {
     body = /* @__PURE__ */ jsx(EmptyRegistry, { map: data });

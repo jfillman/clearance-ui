@@ -461,7 +461,7 @@ export function groupAttention(items: AttentionItem[], targets: TargetNode[]): A
     const words = [...new Set(ids.flatMap(id => [id, nameOf(id)]))].sort((a, b) => b.length - a.length).filter(Boolean);
     return words.length === 0 ? text : text.replace(new RegExp(`(?<![\\w-])(?:${words.map(escapeRe).join('|')})(?![\\w-])`, 'g'), '[[target]]');
   };
-  const rows = new Map<string, { row: AttentionRow; n: number; title: string; detail: string }>();
+  const rows = new Map<string, { row: AttentionRow; title: string; detail: string }>();
   const out: AttentionRow[] = [];
   for (const it of items) {
     // a title that opens with its own count ("1 change waiting on a person") must not keep the first item's number once merged
@@ -471,11 +471,10 @@ export function groupAttention(items: AttentionItem[], targets: TargetNode[]): A
     const seen = rows.get(key);
     if (!seen) {
       const row: AttentionRow = { ...it, targets: [...it.targets], names: it.targets.length > 1 ? it.targets.map(nameOf) : [] };
-      rows.set(key, { row, n: 1, title, detail });
+      rows.set(key, { row, title, detail });
       out.push(row);
       continue;
     }
-    seen.n++;
     seen.row.count += it.count;
     seen.row.targets = [...new Set([...seen.row.targets, ...it.targets])];
     seen.row.names = seen.row.targets.map(nameOf);

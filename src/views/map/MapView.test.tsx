@@ -546,6 +546,7 @@ it('shows the same alert for several targets as one row with a count and the tar
   const items = within(screen.getByRole('region', { name: 'Needs attention' })).getAllByRole('listitem');
   expect(items).toHaveLength(1);
   expect(screen.getByRole('region', { name: 'Needs attention' }).textContent).toMatch(/Needs attention\s*1(?!\d)/); // the count is the rows drawn, not the raw items
+  expect(screen.getByRole('button', { name: /Needs attention only/ }).textContent).toMatch(/1$/); // the chip counts rows too
   expect(items[0].textContent).toContain('is blind on 3 targets');
   expect(items[0].textContent).toContain('gate-api');
   expect(items[0].textContent).toContain('flight-api');
