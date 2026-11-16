@@ -1,8 +1,8 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import '@material-ui/core/styles';
-import { relativeTime } from '../../kit/format.esm.js';
+import { whenTitle, relativeTime } from '../../kit/format.esm.js';
 import 'react';
-import { useTableKit, TabError, PanelSkeleton, TextLink, Callout, Chip, StatusChip, Hint, Card, EmptyNote, Section } from '../../kit/kit.esm.js';
+import { useTableKit, TabError, PanelSkeleton, TextLink, Callout, Chip, StatusChip, Hint, Card, EmptyNote, Section, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -37,7 +37,7 @@ function ObserverRow({ o, now }) {
       /* @__PURE__ */ jsx("span", { className: c.rowName, children: o.provider }),
       /* @__PURE__ */ jsxs("span", { className: c.rowMeta, children: [
         o.source !== o.provider ? `${o.source} \xB7 ` : "",
-        o.last_ts ? `health record ${relativeTime(o.last_ts, now)} ago` : "never seen: no health record",
+        o.last_ts ? /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(o.last_ts), children: /* @__PURE__ */ jsx("span", { children: `health record ${relativeTime(o.last_ts, now)} ago` }) }) : "never seen: no health record",
         o.failed_checks.length > 0 ? ` \xB7 failing: ${o.failed_checks.join(", ")}` : ""
       ] })
     ] })
@@ -64,8 +64,10 @@ function RecordRow({ r, now, exception }) {
       "seq ",
       r.seq.toLocaleString(),
       " \xB7 ",
-      relativeTime(r.ts, now),
-      " ago"
+      /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(r.ts), children: /* @__PURE__ */ jsxs("span", { children: [
+        relativeTime(r.ts, now),
+        " ago"
+      ] }) })
     ] })
   ] });
 }
@@ -178,7 +180,7 @@ function TargetDetailView({ id, win, onWindow, onBack, onNavigate }) {
           /* @__PURE__ */ jsx("div", { className: tk.meta, children: [ch.owner ? `owner ${ch.owner}` : "", ch.cleared_by ? `cleared by ${ch.cleared_by}` : ""].filter(Boolean).join(" \xB7 ") })
         ] }),
         /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: changeTone(ch.state), children: ch.state }) }),
-        /* @__PURE__ */ jsx("td", { className: tk.td, children: ageWords(ch.age_seconds) })
+        /* @__PURE__ */ jsx("td", { className: tk.td, children: ch.updated_at ? /* @__PURE__ */ jsx(Tooltip, { title: `Last updated ${whenTitle(ch.updated_at)}`, children: /* @__PURE__ */ jsx("span", { children: ageWords(ch.age_seconds) }) }) : ageWords(ch.age_seconds) })
       ] }, ch.id)) })
     ] }) }),
     /* @__PURE__ */ jsxs(

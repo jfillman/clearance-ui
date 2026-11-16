@@ -10,7 +10,9 @@ import {
   ControlError,
   Count,
   CoverageBanner,
-  dateTime,
+  Time,
+  Tooltip,
+  whenTitle,
   DEFAULT_PAGE_SIZE,
   EmptyNote,
   ExpandRow,
@@ -468,7 +470,7 @@ function RowDetail({ row, admin, onChanged, now }: { row: Row; admin: boolean; o
         <Count>seq {row.seq}{row.scope ? ` · ${row.scope}` : ''}</Count>
       </div>
       <FactGrid min={220}>
-        <Fact label="When">{dateTime(row.ts)} ({relativeTime(row.ts, now)})</Fact>
+        <Fact label="When"><Time iso={row.ts} standalone /> (<Tooltip title={whenTitle(row.ts)}><span>{relativeTime(row.ts, now)}</span></Tooltip>)</Fact>
         <Fact label="Actor">{row.actor || 'not attributed'}</Fact>
         <Fact label="What changed">{row.diff || 'no detail recorded'}</Fact>
         <Fact label="Resolution history">
@@ -476,7 +478,7 @@ function RowDetail({ row, admin, onChanged, now }: { row: Row; admin: boolean; o
             <ol className={c.hist} reversed aria-label="Resolution history, newest first">
               {row.history.map(h => (
                 <li key={h.seq}>
-                  <strong>{STATE_WORDS[h.resolution?.state ?? ''] ?? h.resolution?.state}</strong>{h.resolution?.cause ? ` (${h.resolution.cause})` : ''} by {shortPrincipal(h.resolution?.by) || 'its collector'} <Count>{dateTime(h.ts)} · seq {h.seq}</Count>
+                  <strong>{STATE_WORDS[h.resolution?.state ?? ''] ?? h.resolution?.state}</strong>{h.resolution?.cause ? ` (${h.resolution.cause})` : ''} by {shortPrincipal(h.resolution?.by) || 'its collector'} <Count><Time iso={h.ts} /> · seq {h.seq}</Count>
                   {h.resolution?.note ? <Hint>{h.resolution.note}</Hint> : null}
                 </li>
               ))}
@@ -567,7 +569,7 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
                       </td>
                     )}
                     <td className={tk.td}>
-                      <TextLink expanded={isOpen} title={dateTime(r.ts)} aria-label={`${isOpen ? 'Hide' : 'Show'} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`}>
+                      <TextLink expanded={isOpen} title={whenTitle(r.ts)} aria-label={`${isOpen ? 'Hide' : 'Show'} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`}>
                         {relativeTime(r.ts, now)}
                       </TextLink>
                     </td>

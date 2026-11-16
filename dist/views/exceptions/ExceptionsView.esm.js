@@ -3,10 +3,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { RESOLUTION_STATES, RESOLUTION_CAUSES } from '../../kit/types.esm.js';
 import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
-import { relativeTime, dateTime, shortPrincipal } from '../../kit/format.esm.js';
+import { relativeTime, whenTitle, shortPrincipal } from '../../kit/format.esm.js';
 import { usePoll } from '../../kit/usePoll.esm.js';
 import { useMountedNow } from '../../kit/now.esm.js';
-import { Count, FilterBar, FilterSelect, FilterChips, FilterGroup, FilterChip, SearchField, TextLink, Hint, TabError, Callout, Button, Tile, Field, useTableKit, Section, EmptyNote, Checkbox, StatusChip, SectionTitle, Chip, FactGrid, Fact } from '../../kit/kit.esm.js';
+import { Count, FilterBar, FilterSelect, FilterChips, FilterGroup, FilterChip, SearchField, TextLink, Hint, TabError, Callout, Button, Tile, Field, useTableKit, Section, EmptyNote, Checkbox, StatusChip, SectionTitle, Chip, FactGrid, Fact, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -17,6 +17,7 @@ import { DEFAULT_PAGE_SIZE, pageSlice, PAGE_SIZES, Pager } from '../../kit/Pager
 import '@material-ui/core/Popper';
 import '../../kit/kitStyles.esm.js';
 import { ExpandRow } from '../../kit/ExpandRow.esm.js';
+import { Time } from '../../kit/Time.esm.js';
 import { historyOf, diffSummary, REDACTED } from './diff.esm.js';
 
 const DAY = 864e5;
@@ -393,9 +394,9 @@ function RowDetail({ row, admin, onChanged, now }) {
     ] }),
     /* @__PURE__ */ jsxs(FactGrid, { min: 220, children: [
       /* @__PURE__ */ jsxs(Fact, { label: "When", children: [
-        dateTime(row.ts),
+        /* @__PURE__ */ jsx(Time, { iso: row.ts, standalone: true }),
         " (",
-        relativeTime(row.ts, now),
+        /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(row.ts), children: /* @__PURE__ */ jsx("span", { children: relativeTime(row.ts, now) }) }),
         ")"
       ] }),
       /* @__PURE__ */ jsx(Fact, { label: "Actor", children: row.actor || "not attributed" }),
@@ -407,7 +408,7 @@ function RowDetail({ row, admin, onChanged, now }) {
         shortPrincipal(h.resolution?.by) || "its collector",
         " ",
         /* @__PURE__ */ jsxs(Count, { children: [
-          dateTime(h.ts),
+          /* @__PURE__ */ jsx(Time, { iso: h.ts }),
           " \xB7 seq ",
           h.seq
         ] }),
@@ -467,7 +468,7 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
         const toggle = () => onSelect(isOpen ? void 0 : key);
         return /* @__PURE__ */ jsxs(ExpandRow, { id: `exc-${key}`, open: isOpen, onToggle: toggle, colSpan: cols.length, label: `Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, details: /* @__PURE__ */ jsx(RowDetail, { row: r, admin, onChanged, now }), children: [
           admin && /* @__PURE__ */ jsx("td", { className: tk.td, onClick: (e) => e.stopPropagation(), children: r.resolvable && /* @__PURE__ */ jsx(Checkbox, { "aria-label": `Select ${rowName(r)}, seq ${r.seq}`, checked: picked.has(key), onChange: () => onPick([key], !picked.has(key)) }) }),
-          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TextLink, { expanded: isOpen, title: dateTime(r.ts), "aria-label": `${isOpen ? "Hide" : "Show"} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, children: relativeTime(r.ts, now) }) }),
+          /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TextLink, { expanded: isOpen, title: whenTitle(r.ts), "aria-label": `${isOpen ? "Hide" : "Show"} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, children: relativeTime(r.ts, now) }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: COVERAGE_TONE[r.klass] ?? "neutral", children: r.klass }) }),
           /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: r.resource || r.source }),
           /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: shortPrincipal(r.actor) || "\u2014" }),

@@ -11,18 +11,36 @@ function relativeTime(iso, now = Date.now()) {
   else text = `${Math.round(s / 86400)} d`;
   return ms >= 0 ? text : `in ${text}`;
 }
-function clock(iso) {
-  if (!iso) return "";
+const parse = (iso) => {
+  if (!iso) return void 0;
   const d = new Date(iso);
-  const p = (n) => String(n).padStart(2, "0");
-  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+  return Number.isNaN(d.getTime()) ? void 0 : d;
+};
+function clock(iso, o = {}) {
+  const d = parse(iso);
+  if (!d) return iso ?? "";
+  return d.toLocaleTimeString(o.locale, { timeZone: o.timeZone });
 }
-function dateTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
+function dateTime(iso, o = {}) {
+  const d = parse(iso);
+  if (!d) return iso ?? "";
+  return d.toLocaleString(o.locale, { timeZone: o.timeZone });
+}
+function dateTimeShort(iso, o = {}) {
+  const d = parse(iso);
+  if (!d) return iso ?? "";
+  return d.toLocaleString(o.locale, { timeZone: o.timeZone, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function utcDateTime(iso, seconds = false) {
+  const d = parse(iso);
+  if (!d) return iso ?? "";
   const p = (n) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}Z`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${seconds ? `:${p(d.getUTCSeconds())}` : ""}Z`;
+}
+function whenTitle(iso, o = {}) {
+  const d = parse(iso);
+  if (!d) return iso ?? "";
+  return `${dateTime(iso, o)} (${utcDateTime(iso, true)})`;
 }
 function compact(n) {
   if (n === void 0 || n === null) return "";
@@ -45,5 +63,5 @@ const RUNS_IN_TEXT = {
 };
 const preventFocusScroll = (e) => e.preventDefault();
 
-export { RUNS_IN_TEXT, clock, compact, dateTime, isWorkload, preventFocusScroll, ratio, relativeTime, runsInOf, shortPrincipal };
+export { RUNS_IN_TEXT, clock, compact, dateTime, dateTimeShort, isWorkload, preventFocusScroll, ratio, relativeTime, runsInOf, shortPrincipal, utcDateTime, whenTitle };
 //# sourceMappingURL=format.esm.js.map

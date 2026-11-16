@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { dateTime, relativeTime } from './format';
+import { relativeTime, whenTitle } from './format';
 import { Callout, Count, StatusChip, Tooltip, type CalloutTone, type StatusTone } from './kit';
 import { useMountedNow } from './now';
 import { useClearanceRead, type ClearanceRead } from './read';
@@ -138,9 +138,9 @@ export function CoverageBanner({ scope, statement, error, now, busy, retryAt, st
         <span className={c.top}>
           {scope}
           <StatusChip tone={healthTone(s.state)} dot>{s.state}</StatusChip>
-          {s.since && <Tooltip title={dateTime(s.since)}><Count>since {relativeTime(s.since, at)} ago</Count></Tooltip>}
+          {s.since && <Tooltip title={whenTitle(s.since)}><Count>since {relativeTime(s.since, at)} ago</Count></Tooltip>}
           <Count>{statement.seen_not_cleared.count} seen, not cleared · {statement.cleared_and_verified.count} cleared and verified</Count>
-          {staleSince !== undefined && <Count>read {relativeTime(new Date(staleSince).toISOString(), nowMs)} ago; Clearance did not answer the latest try.{retry}</Count>}
+          {staleSince !== undefined && <Count>read <Tooltip title={whenTitle(new Date(staleSince).toISOString())}><span>{relativeTime(new Date(staleSince).toISOString(), nowMs)} ago</span></Tooltip>; Clearance did not answer the latest try.{retry}</Count>}
         </span>
       }
     >

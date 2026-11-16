@@ -75,6 +75,17 @@ it('maps the filters to the API', () => {
   expect(queryOf({ decision: '', coverage: '', agent: '', tool: '', rule: '', app: '', since: 'all', search: '' }, NOW).since).toBeUndefined();
 });
 
+it('a record\'s relative age hovers to its local and UTC time', async () => {
+  await act(async () => {
+    render(<EvidenceView now={NOW} />);
+  });
+  const age = within(screen.getByRole('region', { name: 'Records' })).getAllByText('10 min')[0];
+  await act(async () => {
+    fireEvent.mouseOver(age);
+  });
+  expect(await screen.findByText(/\(2026-10-31 00:50:01Z\)/)).toBeTruthy();
+});
+
 it('lists records, opens one field by field, filters, and loads more', async () => {
   await act(async () => {
     render(<EvidenceView now={NOW} />);

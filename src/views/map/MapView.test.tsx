@@ -317,6 +317,12 @@ describe('the environment detail', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Open change org/gate-api #212' }));
     });
     expect(nav).toEqual([{ view: 'clearances', change: 'ch-1' }]);
+    // the Age cell hovers to when the change was last updated, local and UTC
+    const age = screen.getByText('19 m');
+    await act(async () => {
+      fireEvent.mouseOver(age);
+    });
+    expect(await screen.findByText(/Last updated .*\(2026-11-13 11:41:00Z\)/)).toBeTruthy();
     // exceptions and evidence link to the tabs pre-filtered by this target's scope and app
     expect(screen.getByText('deploy.exception')).toBeTruthy();
     expect(screen.getByText('2.9.0 applied', { exact: false })).toBeTruthy();

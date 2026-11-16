@@ -6,6 +6,8 @@ import {
   Callout,
   Chip,
   clock,
+  utcDateTime,
+  whenTitle,
   Count,
   DecisionChip,
   EmptyNote,
@@ -195,7 +197,7 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
                 {items.map(r => (
                   <ExpandRow key={r.seq} id={`evidence-${r.seq}`} open={seq === r.seq} onToggle={() => toggle(r.seq)} colSpan={6} label={`Record ${r.seq} detail`} details={<RecordDetail record={r} />}>
                     <td className={tk.td}><span className={tk.meta}>{r.seq}</span></td>
-                    <td className={tk.td}><Tooltip title={r.ts}><span className={tk.meta}>{clock(r.ts)}</span></Tooltip><div className={tk.meta}>{relativeTime(r.ts, now)}</div></td>
+                    <td className={tk.td}><Tooltip title={utcDateTime(r.ts, true)}><span className={tk.meta}>{clock(r.ts)}</span></Tooltip><Tooltip title={whenTitle(r.ts)}><div className={tk.meta}>{relativeTime(r.ts, now)}</div></Tooltip></td>
                     <td className={tk.td}><span className={tk.meta}>{shortPrincipal(r.principal)}</span>{r.agent && <div className={tk.meta}>{r.agent}</div>}</td>
                     <td className={tk.td}><TierChip tier={r.tier} /> <Chip>{r.tool}</Chip>{(r.app || r.target) && <div className={tk.meta}>{r.app ?? r.target}</div>}</td>
                     <td className={tk.td}><DecisionChip decision={r.decision} rule={r.rule} /></td>

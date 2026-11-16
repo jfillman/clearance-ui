@@ -3,7 +3,8 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { DecisionChip, TierChip } from './components';
 import { Chip, type Tone } from './kit';
-import { clock, preventFocusScroll } from './format';
+import { preventFocusScroll } from './format';
+import { Time } from './Time';
 import { fontMono, fontScale, tokensForTheme } from './tokens';
 import type { EvidenceRecord } from './types';
 
@@ -152,7 +153,7 @@ export function FlightLog({ records, selected, onSelect, detail, empty, maxHeigh
               aria-expanded={onSelect && detail ? isOpen : undefined}
               aria-controls={onSelect && detail && isOpen ? detailId : undefined}
             >
-              <span className={c.time}>{clock(r.ts)}</span>
+              <span className={c.time}><Time iso={r.ts} format="clock" /></span>
               <span className={c.glyph}><Glyph r={r} /></span>
               <span className={c.what}>
                 <b>{s.title}</b>

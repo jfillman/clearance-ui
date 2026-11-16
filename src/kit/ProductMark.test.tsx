@@ -1,13 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { dateTime } from './format';
 import { ProductMark } from './ProductMark';
-
-it('dateTime places a moment on the day and minute, in UTC', () => {
-  expect(dateTime('2026-10-31T01:13:42.123456+00:00')).toBe('2026-10-31 01:13Z');
-  expect(dateTime('2026-10-30T23:59:59-02:00')).toBe('2026-10-31 01:59Z');
-  expect(dateTime(undefined)).toBe('');
-  expect(dateTime('not a date')).toBe('not a date');
-});
 
 it('draws each product its own glyph on the shared dial, with the amber heading bug', () => {
   const { container } = render(

@@ -17,8 +17,11 @@ import {
   StatusChip,
   TabError,
   TextLink,
+  Time,
+  Tooltip,
   useClearanceRead,
   usePoll,
+  whenTitle,
   type StatusTone,
 } from '../../kit';
 import { MapLanes, type LaneRow } from './MapLanes';
@@ -254,7 +257,7 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
   return (
     <>
       <FilterBar
-        end={<Count>{map.error ? 'refresh failed · ' : ''}live · updated {iso ? `${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago` : '…'}</Count>}
+        end={<Count>{map.error ? 'refresh failed · ' : ''}live · updated {iso ? <Tooltip title={whenTitle(iso)}><span>{`${relativeTime(iso, Math.max(now, map.updatedAt ?? 0))} ago`}</span></Tooltip> : '…'}</Count>}
       >
         <WindowChips value={win} onChange={onWindow} />
         <FilterChips label="View" options={[{ id: 'topology', label: 'Topology' }, { id: 'lanes', label: 'Lanes' }]} value={view} onChange={setView} />
@@ -276,7 +279,7 @@ export function MapView({ win, onWindow, onOpenTarget }: { win: WindowId; onWind
       {body}
       {!empty && (
         <Hint>
-          {data.registry.targets} declared targets from {data.registry.sources.length} {data.registry.sources.length === 1 ? 'source' : 'sources'} · {instances} gate instances · window {data.from.slice(0, 16).replace('T', ' ')} to {data.to.slice(11, 16)} UTC.
+          {data.registry.targets} declared targets from {data.registry.sources.length} {data.registry.sources.length === 1 ? 'source' : 'sources'} · {instances} gate instances · window <Time iso={data.from} format="short" /> to <Time iso={data.to} format="short" />.
         </Hint>
       )}
     </>

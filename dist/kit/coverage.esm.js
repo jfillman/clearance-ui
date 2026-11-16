@@ -1,7 +1,7 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { relativeTime, dateTime } from './format.esm.js';
+import { relativeTime, whenTitle } from './format.esm.js';
 import { Callout, StatusChip, Tooltip, Count } from './kit.esm.js';
 import { useMountedNow } from './now.esm.js';
 import { useClearanceRead } from './read.esm.js';
@@ -98,7 +98,7 @@ function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSinc
       title: /* @__PURE__ */ jsxs("span", { className: c.top, children: [
         scope,
         /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(s.state), dot: true, children: s.state }),
-        s.since && /* @__PURE__ */ jsx(Tooltip, { title: dateTime(s.since), children: /* @__PURE__ */ jsxs(Count, { children: [
+        s.since && /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(s.since), children: /* @__PURE__ */ jsxs(Count, { children: [
           "since ",
           relativeTime(s.since, at),
           " ago"
@@ -111,8 +111,11 @@ function CoverageBanner({ scope, statement, error, now, busy, retryAt, staleSinc
         ] }),
         staleSince !== void 0 && /* @__PURE__ */ jsxs(Count, { children: [
           "read ",
-          relativeTime(new Date(staleSince).toISOString(), nowMs),
-          " ago; Clearance did not answer the latest try.",
+          /* @__PURE__ */ jsx(Tooltip, { title: whenTitle(new Date(staleSince).toISOString()), children: /* @__PURE__ */ jsxs("span", { children: [
+            relativeTime(new Date(staleSince).toISOString(), nowMs),
+            " ago"
+          ] }) }),
+          "; Clearance did not answer the latest try.",
           retry
         ] })
       ] }),
