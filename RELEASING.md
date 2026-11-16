@@ -4,7 +4,7 @@
 publish token. A consumer (`backstage`) pins a tag directly:
 
 ```json
-"@jfillman/clearance-ui": "jfillman/clearance-ui#v0.1.6"
+"@jfillman/clearance-ui": "jfillman/clearance-ui#v0.1.7"
 ```
 
 Because of that, the tagged commit must already contain the **built** `dist/`: nothing runs a build at install time.
