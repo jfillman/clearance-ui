@@ -34,12 +34,13 @@ import {
   soleTarget,
   visibleAttention,
   gateName,
+  groupAttention,
   withGateNames,
   WINDOWS,
   type MapFilters,
   type WindowId,
 } from './model';
-import { useClock } from './parts';
+import { softBreaks, useClock } from './parts';
 import { useMapStyles } from './styles';
 import type { AttentionItem, MapResponse, TargetNode } from './types';
 
@@ -103,7 +104,7 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }: { items: Atten
         <EmptyNote inset>Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy.</EmptyNote>
       ) : (
         <ul className={c.attnList}>
-          {items.map((a, i) => {
+          {groupAttention(items, targets).map((a, i) => {
             const one = soleTarget(a, targets);
             const groups = groupsOf(a, targets);
             let action: ReactNode = null;
@@ -111,12 +112,13 @@ function AttentionPanel({ items, targets, onOpenTarget, onShow }: { items: Atten
             else if (groups.length > 0) action = <TextLink onClick={() => onShow(groups)} aria-label={`Show ${withGateNames(a.title, a.gate_type)} in the map`}>Show</TextLink>;
             return (
               <li key={`${a.kind}-${i}`} className={c.attnItem}>
-                <StatusChip tone={SEVERITY_TONE[a.severity]} title={a.severity === 'info' ? 'For information: nothing is failing' : a.severity}>{a.kind}</StatusChip>
-                <div>
-                  <p className={c.attnTitle}>{withGateNames(a.title, a.gate_type)}</p>
-                  <p className={c.attnDetail}>{withGateNames(a.detail, a.gate_type)}</p>
+                <span className={c.attnChip}><StatusChip tone={SEVERITY_TONE[a.severity]} title={a.severity === 'info' ? 'For information: nothing is failing' : a.severity}>{a.kind}</StatusChip></span>
+                {action && <span className={c.attnAction}>{action}</span>}
+                <div className={c.attnText}>
+                  <p className={c.attnTitle}>{softBreaks(withGateNames(a.title, a.gate_type))}</p>
+                  <p className={c.attnDetail}>{softBreaks(withGateNames(a.detail, a.gate_type))}</p>
+                  {a.names.length > 0 && <p className={c.attnDetail}>on {softBreaks(a.names.join(', '))}</p>}
                 </div>
-                {action}
               </li>
             );
           })}

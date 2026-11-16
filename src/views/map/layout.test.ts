@@ -1,4 +1,4 @@
-import { assignLanes, fan, roundedPath, segHitsRect, segsCross, simplify } from './layout';
+import { assignLanes, fan, placePopover, roundedPath, segHitsRect, segsCross, simplify, type Rect } from './layout';
 
 describe('layout geometry', () => {
   it('fans attach points around the middle of a node edge, and squeezes them when the edge is short', () => {
@@ -57,5 +57,43 @@ describe('layout geometry', () => {
     const [a, b] = lanes;
     // a (higher) turns first only if its right run at y=50 clears b's vertical (30..70): it does not, so b's lane is the nearer to the source
     expect(b).toBeLessThan(a);
+  });
+});
+
+describe('placePopover', () => {
+  const view = { w: 1280, h: 800 };
+  const pop = { w: 360, h: 240 };
+  const hits = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const rectOf = (p: { x: number; y: number }): Rect => ({ x: p.x, y: p.y, w: pop.w, h: pop.h });
+
+  it('opens beside the node, 8 px clear, never over it, wherever the node is', () => {
+    for (const x of [0, 300, 700, 940, 1180]) {
+      for (const y of [0, 300, 700]) {
+        const node = { x, y, w: 100, h: 60 };
+        const p = placePopover(node, pop, view);
+        expect(hits(rectOf(p), node)).toBe(false);
+      }
+    }
+  });
+
+  it('prefers the right, then the left, then below, then above', () => {
+    expect(placePopover({ x: 100, y: 100, w: 100, h: 60 }, pop, view).side).toBe('right');
+    expect(placePopover({ x: 1100, y: 100, w: 100, h: 60 }, pop, view).side).toBe('left');
+    expect(placePopover({ x: 100, y: 100, w: 1000, h: 60 }, pop, view).side).toBe('below');
+    expect(placePopover({ x: 100, y: 600, w: 1000, h: 60 }, pop, view).side).toBe('above');
+  });
+
+  it('keeps an 8 px gap on its side and stays inside the viewport on the other axis', () => {
+    const r = placePopover({ x: 100, y: 780, w: 100, h: 60 }, pop, view);
+    expect(r.x).toBe(208);
+    expect(r.y + pop.h).toBeLessThanOrEqual(view.h - 8);
+    const l = placePopover({ x: 1100, y: 10, w: 100, h: 60 }, pop, view);
+    expect(l.x + pop.w).toBe(1092);
+    expect(l.y).toBeGreaterThanOrEqual(8);
+  });
+
+  it('with no room anywhere it still stays off the node', () => {
+    const node = { x: 20, y: 20, w: 300, h: 200 };
+    expect(hits(rectOf(placePopover(node, { w: 360, h: 240 }, { w: 400, h: 260 })), node)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { StatusChip, Tooltip, useClearanceTokens, type ClearanceTokens, type StatusTone } from '../../kit';
 import { COVERAGE_ORDER } from './model';
 import { useMapStyles } from './styles';
@@ -94,4 +94,9 @@ export function CoverageMix({ coverage, label = 'Coverage mix' }: { coverage: Co
       </ul>
     </Fragment>
   );
+}
+
+/** Text that may break after a slash or a comma (a provider/source pair, a list of targets), never inside a word. */
+export function softBreaks(text: string): ReactNode {
+  return text.split(/(?<=[/,])/).map((part, i) => (i === 0 ? part : <Fragment key={i}><wbr />{part}</Fragment>));
 }

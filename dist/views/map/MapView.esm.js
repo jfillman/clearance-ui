@@ -16,8 +16,8 @@ import '../../kit/ExpandRow.esm.js';
 import { MapLanes } from './MapLanes.esm.js';
 import { MapMatrix } from './MapMatrix.esm.js';
 import { MapTopology, MapLegend } from './MapTopology.esm.js';
-import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, otherPartials, gateName, WINDOWS, soleTarget, groupsOf, withGateNames } from './model.esm.js';
-import { useClock } from './parts.esm.js';
+import { NO_FILTERS, buildTopology, registryTiers, visibleAttention, registryEmpty, otherPartials, gateName, WINDOWS, groupAttention, soleTarget, groupsOf, withGateNames } from './model.esm.js';
+import { useClock, softBreaks } from './parts.esm.js';
 import { useMapStyles } from './styles.esm.js';
 
 const SEVERITY_TONE = { down: "bad", attention: "warn", info: "neutral" };
@@ -63,19 +63,23 @@ function EmptyRegistry({ map }) {
 }
 function AttentionPanel({ items, targets, onOpenTarget, onShow }) {
   const c = useMapStyles();
-  return /* @__PURE__ */ jsx(Section, { framed: true, title: "Needs attention", count: items.length, "aria-label": "Needs attention", children: items.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy." }) : /* @__PURE__ */ jsx("ul", { className: c.attnList, children: items.map((a, i) => {
+  return /* @__PURE__ */ jsx(Section, { framed: true, title: "Needs attention", count: items.length, "aria-label": "Needs attention", children: items.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing needs attention in this window: every declared gate is accounted for and every observer is healthy." }) : /* @__PURE__ */ jsx("ul", { className: c.attnList, children: groupAttention(items, targets).map((a, i) => {
     const one = soleTarget(a, targets);
     const groups = groupsOf(a, targets);
     let action = null;
     if (one) action = /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpenTarget(one.id), "aria-label": `Open ${one.name}`, children: "Open \u2192" });
     else if (groups.length > 0) action = /* @__PURE__ */ jsx(TextLink, { onClick: () => onShow(groups), "aria-label": `Show ${withGateNames(a.title, a.gate_type)} in the map`, children: "Show" });
     return /* @__PURE__ */ jsxs("li", { className: c.attnItem, children: [
-      /* @__PURE__ */ jsx(StatusChip, { tone: SEVERITY_TONE[a.severity], title: a.severity === "info" ? "For information: nothing is failing" : a.severity, children: a.kind }),
-      /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx("p", { className: c.attnTitle, children: withGateNames(a.title, a.gate_type) }),
-        /* @__PURE__ */ jsx("p", { className: c.attnDetail, children: withGateNames(a.detail, a.gate_type) })
-      ] }),
-      action
+      /* @__PURE__ */ jsx("span", { className: c.attnChip, children: /* @__PURE__ */ jsx(StatusChip, { tone: SEVERITY_TONE[a.severity], title: a.severity === "info" ? "For information: nothing is failing" : a.severity, children: a.kind }) }),
+      action && /* @__PURE__ */ jsx("span", { className: c.attnAction, children: action }),
+      /* @__PURE__ */ jsxs("div", { className: c.attnText, children: [
+        /* @__PURE__ */ jsx("p", { className: c.attnTitle, children: softBreaks(withGateNames(a.title, a.gate_type)) }),
+        /* @__PURE__ */ jsx("p", { className: c.attnDetail, children: softBreaks(withGateNames(a.detail, a.gate_type)) }),
+        a.names.length > 0 && /* @__PURE__ */ jsxs("p", { className: c.attnDetail, children: [
+          "on ",
+          softBreaks(a.names.join(", "))
+        ] })
+      ] })
     ] }, `${a.kind}-${i}`);
   }) }) });
 }

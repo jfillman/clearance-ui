@@ -72,6 +72,12 @@ function CoverageMix({ coverage, label = "Coverage mix" }) {
     ] }, k)) })
   ] });
 }
+function softBreaks(text) {
+  return text.split(/(?<=[/,])/).map((part, i) => i === 0 ? part : /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx("wbr", {}),
+    part
+  ] }, i));
+}
 
-export { CoverageMix, MODE_WHY, ModeChip, coverageColors, mixWords, modeTone, statusColor, statusTone, statusWord, useClock };
+export { CoverageMix, MODE_WHY, ModeChip, coverageColors, mixWords, modeTone, softBreaks, statusColor, statusTone, statusWord, useClock };
 //# sourceMappingURL=parts.esm.js.map

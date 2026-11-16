@@ -1,8 +1,9 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
-import Popper from '@material-ui/core/Popper';
-import { Button, fontBody, StatusChip, TextLink, Tooltip, useClearanceTokens, type ClearanceTokens } from '../../kit';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
+import { fontBody, StatusChip, TextLink, Tooltip, useClearanceTokens, type ClearanceTokens } from '../../kit';
 import { ROW_CAP, type EdgeView, type GateView, type GroupView, type ObserverView, type RowView, type Topology } from './model';
 import { CoverageMix, coverageColors, mixWords, statusColor, statusTone, statusWord } from './parts';
+import { placePopover, type Side } from './layout';
 import { useMapStyles } from './styles';
 import { useHoverIntent } from './useHoverIntent';
 import { COVERAGE_ORDER, gateWords } from './model';
@@ -13,8 +14,9 @@ import { COVERAGE_ORDER, gateWords } from './model';
 // with rounded elbows and runs in its own lane in the gutter between two columns, so none passes through a box or lies on
 // another. Line width is decision volume, colour the worst state behind it (green all verified, amber holding or flag, red
 // out-of-band or blind), a dashed line an observer watching. Every node is focusable: hover or focus opens its popover
-// (beside the node, never over it), Enter acts (a group opens, a target drills down). The dashes that move on a line say
-// decisions are flowing; they stand still for prefers-reduced-motion.
+// (beside the node, never over it: see placePopover), Enter acts (a group opens, a target drills down). One popover at a
+// time; it goes when the pointer has left the node and it, on Escape, on a press outside, and on scroll. The dashes that
+// move on a line (a tint of the line's own colour) say decisions are flowing; they stand still for prefers-reduced-motion.
 
 type Sel = { kind: 'gate' | 'group' | 'observer' | 'target'; id: string };
 interface Hovered {
@@ -41,6 +43,10 @@ const modeWords = (m: { enforce: number; flag: number; silent: number }) => [m.e
 interface Handlers {
   on: (s: Sel, el: Element) => void;
   off: () => void;
+  /** Close now (the anchor is gone). */
+  close: () => void;
+  /** Whether a node is inside the open popover (focus moving into it is not a blur). */
+  within: (n: EventTarget | null) => boolean;
 }
 
 function MixBar({ t, mix, x, y, w }: { t: ClearanceTokens; mix: { enforce: number; flag: number; silent: number }; x: number; y: number; w: number }) {
@@ -90,7 +96,9 @@ function hoverProps(sel: Sel, h: Handlers) {
     onMouseEnter: (e: React.MouseEvent<Element>) => h.on(sel, e.currentTarget),
     onMouseLeave: () => h.off(),
     onFocus: (e: React.FocusEvent<Element>) => h.on(sel, e.currentTarget),
-    onBlur: () => h.off(),
+    onBlur: (e: React.FocusEvent<Element>) => {
+      if (!h.within(e.relatedTarget)) h.off();
+    },
   };
 }
 
@@ -191,7 +199,7 @@ function EdgePath({ e, t }: { e: EdgeView; t: ClearanceTokens }) {
     <g opacity={e.dim ? 0.18 : 1} role="img" aria-label={label}>
       <title>{label}</title>
       <path className={c.edge} d={e.d} stroke={color} strokeWidth={e.width} strokeDasharray={watch ? '5 4' : undefined} opacity={watch ? 0.85 : 0.6} markerEnd={`url(#${arrowId(state)})`} />
-      {!watch && e.edge.volume > 0 && !e.dim && <path className={c.flow} d={e.d} />}
+      {!watch && e.edge.volume > 0 && !e.dim && <path className={c.flow} d={e.d} stroke={color} style={{ stroke: `color-mix(in srgb, ${color} 45%, white)` }} />}
     </g>
   );
 }
@@ -216,7 +224,7 @@ function ColumnHeads({ topo }: { topo: Topology }) {
   );
 }
 
-function Popover({ sel, topo, el, h, onOpen, onToggle }: { sel: Sel; topo: Topology; el: Element; h: Handlers & { stay: () => void }; onOpen: (id: string) => void; onToggle: (g: string) => void }) {
+function Popover({ sel, topo, el, h, popRef, onOpen, onToggle }: { sel: Sel; topo: Topology; el: Element; h: Handlers & { stay: () => void }; popRef: RefObject<HTMLDivElement>; onOpen: (id: string) => void; onToggle: (g: string) => void }) {
   const c = useMapStyles();
   let name = '';
   let aria = '';
@@ -298,7 +306,7 @@ function Popover({ sel, topo, el, h, onOpen, onToggle }: { sel: Sel; topo: Topol
             const w = gateWords(g.type);
             return (
               <span key={g.instance} className={c.popGate}>
-                <span className={c.popLead}>{w.name} · {w.kind} · {g.silent ? 'silent' : g.mode} · </span>
+                <span className={c.popLead}>{w.name} · {w.kind} · {g.silent ? 'silent' : g.mode}</span>
                 <Tooltip title={g.instance}><span className={c.popInstance}>{g.instance}</span></Tooltip>
               </span>
             );
@@ -309,32 +317,57 @@ function Popover({ sel, topo, el, h, onOpen, onToggle }: { sel: Sel; topo: Topol
     );
     foot = <TextLink onClick={() => onOpen(n.id)}>Open detail →</TextLink>;
   }
-  // A Popper (a portal on <body>), so the framed Section's overflow cannot clip it: beside the node, else the other side, else
-  // below it, always shifted to stay inside the viewport.
   return (
-    <Popper
-      open
-      anchorEl={el}
-      placement="right-start"
-      style={{ zIndex: 1300 }}
-      modifiers={{ offset: { offset: '0, 10' }, flip: { enabled: true, behavior: ['right', 'left', 'bottom'] }, preventOverflow: { enabled: true, boundariesElement: 'viewport', padding: 8 } }}
-    >
-      <div
-        className={c.popover}
-        role="dialog"
-        aria-label={`${aria} details`}
-        data-testid="map-popover"
-        onMouseEnter={h.stay}
-        onMouseLeave={h.off}
-      >
-        <div className={c.popHead}>
-          <h3 className={c.popName}>{name}</h3>
-          <StatusChip tone={statusTone(status)} dot>{statusWord(status)}</StatusChip>
-        </div>
-        {body}
-        {foot}
+    <PlacedBox el={el} popRef={popRef} h={h} wide={sel.kind === 'target'} label={`${aria} details`}>
+      <div className={c.popHead}>
+        <h3 className={c.popName}>{name}</h3>
+        <StatusChip tone={statusTone(status)} dot>{statusWord(status)}</StatusChip>
       </div>
-    </Popper>
+      {body}
+      {foot}
+    </PlacedBox>
+  );
+}
+
+/**
+ * The popover's box, placed by hand in a portal on <body> (the framed Section's overflow cannot clip it): beside the node,
+ * else the other side, else below or above it, never over it (placePopover). Measured after it renders, so it is hidden
+ * until placed; gone if its node is.
+ */
+function PlacedBox({ el, popRef, h, wide, label, children }: { el: Element; popRef: RefObject<HTMLDivElement>; h: Handlers & { stay: () => void }; wide: boolean; label: string; children: ReactNode }) {
+  const c = useMapStyles();
+  const [at, setAt] = useState<{ x: number; y: number; side: Side }>();
+  useLayoutEffect(() => {
+    const box = popRef.current;
+    if (!box) return;
+    if (!el.isConnected) {
+      h.close();
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    const p = box.getBoundingClientRect();
+    const next = placePopover({ x: r.left, y: r.top, w: r.width, h: r.height }, { w: p.width, h: p.height }, { w: window.innerWidth, h: window.innerHeight });
+    setAt(prev => (prev && prev.x === next.x && prev.y === next.y && prev.side === next.side ? prev : next));
+  });
+  return createPortal(
+    <div
+      ref={popRef}
+      className={`${c.popover} ${wide ? c.popoverWide : ''}`}
+      style={{ position: 'fixed', left: at?.x ?? 0, top: at?.y ?? 0, visibility: at ? 'visible' : 'hidden', zIndex: 1300 }}
+      data-side={at?.side}
+      role="dialog"
+      aria-label={label}
+      data-testid="map-popover"
+      onMouseEnter={h.stay}
+      onMouseLeave={h.off}
+      onFocus={h.stay}
+      onBlur={e => {
+        if (!h.within(e.relatedTarget) && !el.contains(e.relatedTarget as Node | null)) h.off();
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
   );
 }
 
@@ -342,19 +375,54 @@ export function MapTopology({ topo, onToggleGroup, onOpenTarget }: { topo: Topol
   const c = useMapStyles();
   const t = useClearanceTokens();
   const { hover, enter, leave, hideNow } = useHoverIntent<Hovered>();
-  const [pinned, setPinned] = useState<Hovered>();
-  const shown = hover ?? pinned;
-  const handlers = { on: (sel: Sel, el: Element) => enter({ sel, el }), off: leave, stay: () => hover && enter(hover) };
-  const pin = (sel: Sel, el: Element) => setPinned(p => (p && p.sel.kind === sel.kind && p.sel.id === sel.id ? undefined : { sel, el }));
+  const popRef = useRef<HTMLDivElement>(null);
+  const openedAt = useRef(0);
+  const within = (n: EventTarget | null) => !!n && !!popRef.current && popRef.current.contains(n as Node);
+  const open = (sel: Sel, el: Element) => {
+    openedAt.current = Date.now();
+    enter({ sel, el });
+  };
+  const handlers = { on: open, off: leave, stay: () => hover && enter(hover), within, close: hideNow };
+  // What goes: a press outside the node and the popover, Escape, a scroll of the page or the map, a resize. The focus a
+  // click puts on a node can scroll it into view, so a scroll in the first moment after opening is not a dismissal.
+  useEffect(() => {
+    if (!hover) return undefined;
+    const outside = (e: Event) => {
+      const n = e.target as Node | null;
+      if (n && (within(n) || hover.el.contains(n))) return;
+      hideNow();
+    };
+    const esc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') hideNow();
+    };
+    const scrolled = () => {
+      if (Date.now() - openedAt.current > 250) hideNow();
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('mousedown', outside, true);
+    document.addEventListener('keydown', esc);
+    window.addEventListener('scroll', scrolled, true);
+    window.addEventListener('resize', hideNow);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('mousedown', outside, true);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('scroll', scrolled, true);
+      window.removeEventListener('resize', hideNow);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover, hideNow]);
+  const toggle = (g: string) => {
+    hideNow();
+    onToggleGroup(g);
+  };
+  const openTarget = (id: string) => {
+    hideNow();
+    onOpenTarget(id);
+  };
   const total = topo.groups.reduce((n, g) => n + g.targets.length, 0);
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div className={c.stage} onKeyDown={e => {
-      if (e.key === 'Escape') {
-        setPinned(undefined);
-        hideNow();
-      }
-    }}>
+    <div className={c.stage}>
       <div className={c.canvas}>
         <div className={c.scroll}>
           <svg className={c.svg} style={{ maxWidth: Math.round(topo.width * 1.25) }} viewBox={`0 0 ${topo.width} ${topo.height}`} role="group" aria-label={`Coverage topology: ${topo.gates.length} gate types, ${total} targets in ${topo.groups.length} groups, ${topo.observers.length} observers`} fontFamily={fontBody}>
@@ -368,20 +436,15 @@ export function MapTopology({ topo, onToggleGroup, onOpenTarget }: { topo: Topol
             <ColumnHeads topo={topo} />
             <rect className={c.core} x={topo.core.x} y={topo.core.y} width={topo.core.w} height={topo.core.h} rx={8} opacity={0.55} aria-hidden="true" />
             {topo.edges.map(e => <EdgePath key={e.id} e={e} t={t} />)}
-            {topo.gates.map(v => <GateNode key={v.node.id} v={v} t={t} h={handlers} onSel={pin} />)}
-            {topo.groups.map(v => <GroupNodeView key={v.node.id} v={v} t={t} h={handlers} onToggle={onToggleGroup} onOpen={onOpenTarget} />)}
-            {topo.observers.map(v => <ObserverNodeView key={v.node.id} v={v} t={t} h={handlers} onSel={pin} />)}
+            {topo.gates.map(v => <GateNode key={v.node.id} v={v} t={t} h={handlers} onSel={open} />)}
+            {topo.groups.map(v => <GroupNodeView key={v.node.id} v={v} t={t} h={handlers} onToggle={toggle} onOpen={openTarget} />)}
+            {topo.observers.map(v => <ObserverNodeView key={v.node.id} v={v} t={t} h={handlers} onSel={open} />)}
             {topo.edges.filter(e => e.label && !e.dim).map(e => (
               <text key={`l-${e.id}`} className={c.edgeLabel} x={e.label!.x - e.label!.w / 2} y={e.label!.y} textAnchor="start" style={{ fill: statusColor(t, e.edge.status) }} aria-hidden="true">{e.label!.text}</text>
             ))}
           </svg>
         </div>
-        {shown && <Popover sel={shown.sel} topo={topo} el={shown.el} h={handlers} onOpen={onOpenTarget} onToggle={onToggleGroup} />}
-        {pinned && !hover && (
-          <div style={{ position: 'absolute', top: -6, right: 0 }}>
-            <Button small onClick={() => setPinned(undefined)}>Close details</Button>
-          </div>
-        )}
+        {hover && <Popover sel={hover.sel} topo={topo} el={hover.el} h={handlers} popRef={popRef} onOpen={openTarget} onToggle={toggle} />}
       </div>
     </div>
   );
@@ -410,6 +473,7 @@ export function MapLegend() {
       <span className={c.legendItem}><i className={`${c.swatch} ${c.swatchDown}`} /> out-of-band or blind</span>
       <span className={c.legendItem}><i className={`${c.swatch} ${c.swatchWatch}`} /> observer watching</span>
       <span>line width: decisions in the window</span>
+      <span className={c.legendItem}><i className={`${c.swatch} ${c.swatchMoving}`} /> moving dashes: decisions in the window</span>
       <span className={c.legendItem}>
         gate bar:
         <i className={c.legendDot} style={{ backgroundColor: t.good }} /> enforce
