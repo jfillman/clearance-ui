@@ -14,6 +14,8 @@ export interface Polled<T> {
 const RETRY_BASE_MS = 3_000;
 const RETRY_MAX_MS = 30_000;
 const RETRY_ATTEMPTS = 3;
+/** A server's own Retry-After is honoured, up to this (so a hostile or mistaken header cannot park the poll for hours). */
+const RETRY_AFTER_MAX_MS = 300_000;
 
 /** Worth trying again unprompted: the network or a timeout (status 0), or a server that is busy or restarting. */
 export function isTransient(e: unknown): boolean {
@@ -53,7 +55,10 @@ export function usePoll<T>(key: string, fetcher: () => Promise<T>, intervalMs: n
           if (!cancelled) {
             if (!gotData && isTransient(e) && failures <= RETRY_ATTEMPTS) {
               const hinted = e instanceof ReadError ? e.retryAfterMs : undefined;
-              retryIn = Math.min(RETRY_MAX_MS, hinted ?? RETRY_BASE_MS * 2 ** (failures - 1));
+              retryIn =
+                hinted !== undefined && hinted > 0
+                  ? Math.min(hinted, RETRY_AFTER_MAX_MS)
+                  : Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (failures - 1)); // the cap bounds the back-off, not the server's hint
             }
             setState(s => ({ ...s, error: e instanceof Error ? e.message : String(e), failure: e, loading: false }));
           }

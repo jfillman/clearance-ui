@@ -4,6 +4,7 @@ import { ReadError } from './read.esm.js';
 const RETRY_BASE_MS = 3e3;
 const RETRY_MAX_MS = 3e4;
 const RETRY_ATTEMPTS = 3;
+const RETRY_AFTER_MAX_MS = 3e5;
 function isTransient(e) {
   return e instanceof ReadError && (e.status === 0 || e.status === 429 || e.status === 502 || e.status === 503 || e.status === 504);
 }
@@ -32,7 +33,7 @@ function usePoll(key, fetcher, intervalMs) {
           if (!cancelled) {
             if (!gotData && isTransient(e) && failures <= RETRY_ATTEMPTS) {
               const hinted = e instanceof ReadError ? e.retryAfterMs : void 0;
-              retryIn = Math.min(RETRY_MAX_MS, hinted ?? RETRY_BASE_MS * 2 ** (failures - 1));
+              retryIn = hinted !== void 0 && hinted > 0 ? Math.min(hinted, RETRY_AFTER_MAX_MS) : Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (failures - 1));
             }
             setState((s) => ({ ...s, error: e instanceof Error ? e.message : String(e), failure: e, loading: false }));
           }
