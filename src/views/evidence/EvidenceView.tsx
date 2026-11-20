@@ -137,6 +137,7 @@ export function EvidenceView({ now: nowProp, initialApp }: { now?: number; initi
   const load = useCallback(
     async (after?: number) => {
       setLoading(true);
+      setError(undefined);
       try {
         const page = await api.get<Page<EvidenceRecord>>('/v1/evidence', { ...query, limit: pageSize, after });
         setItems(prev => (after === undefined ? page.items : [...prev, ...page.items]));

@@ -11,6 +11,7 @@ import {
   PanelSkeleton,
   ReadError,
   Section,
+  TabError,
   TextLink,
   useClearanceRead,
   usePoll,
@@ -42,7 +43,7 @@ export function AttestationDetail({ row, onOpenChange }: { row: AttestationRow; 
   const id = encodeURIComponent(row.change_id);
   const config = usePoll<AttestationConfig | undefined>('attestation-config', () => api.get<AttestationConfig>('/v1/attestation-config').catch(() => undefined), 0);
   const verifiable = verifiableOf(config);
-  const change = usePoll<Change | undefined>(`clearance-${row.change_id}`, () => api.get<Change>(`/v1/clearances/${id}`).catch(() => undefined), 30_000);
+  const change = usePoll<Change>(`clearance-${row.change_id}`, () => api.get<Change>(`/v1/clearances/${id}`), 30_000);
   const verify = usePoll<VerifyAnswer | undefined>(
     `attestation-verify-${row.change_id}-${row.digest}-${verifiable}`,
     () => (verifiable ? api.get<VerifyAnswer>(`/v1/clearances/${id}/attestation/verify`).catch(e => (e instanceof ReadError && e.status === 404 ? undefined : Promise.reject(e))) : Promise.resolve(undefined)),
@@ -157,7 +158,9 @@ export function AttestationDetail({ row, onOpenChange }: { row: AttestationRow; 
         </div>
       </Section>
 
-      {change.data ? <ChangeHistory change={change.data} /> : <PanelSkeleton rows={2} label="Loading the change history…" />}
+      {change.data && <ChangeHistory change={change.data} />}
+      {!change.data && change.error && <div className={c.pad}><TabError error={change.failure ?? change.error} what="the change history" onRetry={change.refresh} /></div>}
+      {!change.data && !change.error && <PanelSkeleton rows={2} label="Loading the change history…" />}
 
       <Section framed level={2} aria-label="Verify and download" title="Verify it yourself">
         <div className={c.pad}>

@@ -76,6 +76,7 @@ function EvidenceView({ now: nowProp, initialApp }) {
   const load = useCallback(
     async (after) => {
       setLoading(true);
+      setError(void 0);
       try {
         const page = await api.get("/v1/evidence", { ...query, limit: pageSize, after });
         setItems((prev) => after === void 0 ? page.items : [...prev, ...page.items]);

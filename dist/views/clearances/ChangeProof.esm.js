@@ -130,6 +130,7 @@ function ChangeHistory({ change }) {
   const [extra, setExtra] = useState([]);
   const [after, setAfter] = useState(void 0);
   const [busy, setBusy] = useState(false);
+  const [moreError, setMoreError] = useState();
   const [open, setOpen] = useState();
   const first = usePoll(`change-records-${change.id}-${change.state}-${change.attestation ? "a" : ""}`, () => api.get(`/v1/clearances/${encodeURIComponent(change.id)}/records`, { limit: 100 }), 3e4);
   const items = [...first.data?.items ?? [], ...extra];
@@ -137,10 +138,13 @@ function ChangeHistory({ change }) {
   const more = async () => {
     if (next === null) return;
     setBusy(true);
+    setMoreError(void 0);
     try {
       const page = await api.get(`/v1/clearances/${encodeURIComponent(change.id)}/records`, { limit: 100, after: next });
       setExtra((prev) => [...prev, ...page.items]);
       setAfter(typeof page.next === "number" ? page.next : null);
+    } catch (e) {
+      setMoreError(e);
     } finally {
       setBusy(false);
     }
@@ -190,6 +194,7 @@ function ChangeHistory({ change }) {
         /* @__PURE__ */ jsx("span", {})
       ] })
     ] }),
+    moreError !== void 0 && /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx(TabError, { error: moreError, what: "more records", onRetry: more }) }),
     next !== null && /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx("div", { className: c.actions, children: /* @__PURE__ */ jsx(Button, { small: true, disabled: busy, onClick: more, children: "Load more records" }) }) }),
     /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx("span", { className: c.detail, children: "Also recorded when they happen: deploy.revoke (a new head replaces a cleared change), deploy.expire (the TTL passes), deploy.exception (applied with no grant). Each shows here with its seq and hash." }) })
   ] });

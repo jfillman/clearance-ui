@@ -1,10 +1,10 @@
 import { makeStyles } from '@material-ui/core/styles';
 import { tokensForTheme, fontScale, fontMono, fontBody, fontDisplay } from '../../kit/tokens.esm.js';
 import 'react';
+import '../../kit/transport.esm.js';
 import '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
-import '../../kit/transport.esm.js';
 import 'react/jsx-runtime';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
