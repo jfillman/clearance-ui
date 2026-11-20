@@ -707,9 +707,14 @@ interface Polled<T> {
     updatedAt?: number;
     refresh: () => void;
 }
+/** Worth trying again unprompted: the network or a timeout (status 0), or a server that is busy or restarting. */
+declare function isTransient(e: unknown): boolean;
 /**
  * Calls `fetcher` now and every `intervalMs` while the page is visible, keeping the last good data on a failure.
  * `key` restarts the loop when what is fetched changes. `intervalMs` 0 fetches once.
+ * A failure before any data (a 503 while the database is busy, a timeout) is retried by itself, a few times with
+ * back-off (honouring Retry-After); after that the error stays for the view to show with a Retry (`refresh`).
+ * `refresh` clears the error and shows loading again.
  */
 declare function usePoll<T>(key: string, fetcher: () => Promise<T>, intervalMs: number): Polled<T>;
 
@@ -1162,6 +1167,13 @@ declare class ReadError extends Error {
     readonly retryAfterMs?: number | undefined;
     constructor(message: string, status: number, retryAfterMs?: number | undefined);
 }
+/** How long a read may take before it is given up as a timeout, so a spinner never waits on a hung connection. */
+declare const READ_TIMEOUT_MS = 30000;
+/** A read that never got an answer: the network failed or it timed out. `status` is 0; a view may offer Retry. */
+declare class ReadUnreachable extends ReadError {
+    readonly timedOut: boolean;
+    constructor(message: string, timedOut?: boolean);
+}
 interface ClearanceRead {
     get<T>(path: string, params?: Params, opts?: ReadOptions): Promise<T>;
     /** The answer's body exactly as served, for a file the person saves (the attestation bundle): nothing is re-encoded. */
@@ -1547,5 +1559,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Time, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, dateTimeShort, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy, utcDateTime, whenTitle };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, READ_TIMEOUT_MS, RESOLUTION_CAUSES, RESOLUTION_STATES, RUNS_IN_TEXT, ReadError, ReadUnreachable, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Time, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, dateTimeShort, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isTransient, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy, utcDateTime, whenTitle };
 export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageBannerProps, CoverageHealth, CoveragePollerOptions, CoverageRead, CoverageSnapshot, CoverageStatement, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, ReadOptions, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, TimeOptions, Tone, VerificationBrief, VerifyAnswer };

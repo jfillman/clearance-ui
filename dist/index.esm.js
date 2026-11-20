@@ -1,7 +1,7 @@
 export { RESOLUTION_CAUSES, RESOLUTION_STATES } from './kit/types.esm.js';
 export { fontBody, fontDisplay, fontMono, fontScale, tokensForTheme, useClearanceTokens } from './kit/tokens.esm.js';
 export { RUNS_IN_TEXT, clock, compact, dateTime, dateTimeShort, isWorkload, preventFocusScroll, ratio, relativeTime, runsInOf, shortPrincipal, utcDateTime, whenTitle } from './kit/format.esm.js';
-export { usePoll } from './kit/usePoll.esm.js';
+export { isTransient, usePoll } from './kit/usePoll.esm.js';
 export { useMountedNow } from './kit/now.esm.js';
 export { ActionReason, Button, Callout, Card, Checkbox, Chip, ColumnLabel, CopyButton, Count, EmptyNote, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, Hint, IconButton, PageHeader, Panel, PanelSkeleton, SearchField, Section, SectionLabel, SectionTitle, Skeleton, Stat, StatRow, StatusChip, Subtabs, TabError, TabSkeleton, TextLink, Tile, Tooltip, YamlBlock, useInputClass, useTableKit, useTextLinkClass } from './kit/kit.esm.js';
 export { BudgetBar, BudgetBars, DecisionChip, KindChip, SessionBudgets, StateChip, TierChip, VerifiedClaimed, formatMinutes, outcomeLabel, tierTone } from './kit/components.esm.js';
@@ -9,7 +9,7 @@ export { FLIGHT_LOG_MAX_HEIGHT, FlightLog, summarize } from './kit/FlightLog.esm
 export { ClearanceTransportProvider, TransportError, parseRetryAfter, useClearanceTransport } from './kit/transport.esm.js';
 export { createFetchTransport } from './kit/fetchTransport.esm.js';
 export { createFakeTransport } from './kit/fakeTransport.esm.js';
-export { ReadError, useClearanceRead } from './kit/read.esm.js';
+export { READ_TIMEOUT_MS, ReadError, ReadUnreachable, useClearanceRead } from './kit/read.esm.js';
 export { BULK_RESOLUTION_LIMIT, ControlError, useClearanceWrite } from './kit/write.esm.js';
 export { ProductMark } from './kit/ProductMark.esm.js';
 export { CoverageBanner, CoverageStrip, healthTone, readDeniedText, statusOf, summarizeCoverage, useCoverage, useScopes } from './kit/coverage.esm.js';

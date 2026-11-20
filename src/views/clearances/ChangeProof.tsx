@@ -190,6 +190,7 @@ export function ChangeHistory({ change }: { change: Change }) {
   const [extra, setExtra] = useState<ChangeRecordItem[]>([]);
   const [after, setAfter] = useState<number | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [moreError, setMoreError] = useState<unknown>();
   const [open, setOpen] = useState<number>();
   const first = usePoll(`change-records-${change.id}-${change.state}-${change.attestation ? 'a' : ''}`, () => api.get<Page<ChangeRecordItem>>(`/v1/clearances/${encodeURIComponent(change.id)}/records`, { limit: 100 }), 30_000);
   const items = [...(first.data?.items ?? []), ...extra];
@@ -197,10 +198,13 @@ export function ChangeHistory({ change }: { change: Change }) {
   const more = async () => {
     if (next === null) return;
     setBusy(true);
+    setMoreError(undefined);
     try {
       const page = await api.get<Page<ChangeRecordItem>>(`/v1/clearances/${encodeURIComponent(change.id)}/records`, { limit: 100, after: next });
       setExtra(prev => [...prev, ...page.items]);
       setAfter(typeof page.next === 'number' ? page.next : null);
+    } catch (e) {
+      setMoreError(e);
     } finally {
       setBusy(false);
     }
@@ -252,6 +256,7 @@ export function ChangeHistory({ change }: { change: Change }) {
           )}
         </ol>
       )}
+      {moreError !== undefined && <div className={c.pad}><TabError error={moreError} what="more records" onRetry={more} /></div>}
       {next !== null && <div className={c.pad}><div className={c.actions}><Button small disabled={busy} onClick={more}>Load more records</Button></div></div>}
       <div className={c.pad}>
         <span className={c.detail}>Also recorded when they happen: deploy.revoke (a new head replaces a cleared change), deploy.expire (the TTL passes), deploy.exception (applied with no grant). Each shows here with its seq and hash.</span>

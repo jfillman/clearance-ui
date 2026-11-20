@@ -1,10 +1,10 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useEffect, Fragment } from 'react';
 import { useClearanceTokens } from '../../kit/tokens.esm.js';
+import '../../kit/transport.esm.js';
 import { StatusChip, Tooltip } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
-import '../../kit/transport.esm.js';
 import '../../kit/coverage.esm.js';
 import '../../kit/Pager.esm.js';
 import '@material-ui/core/Popper';

@@ -2,7 +2,7 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { usePoll } from '../../kit/usePoll.esm.js';
-import { Section, Chip, Callout, PanelSkeleton, FactGrid, Fact, YamlBlock, Button, TextLink } from '../../kit/kit.esm.js';
+import { Section, Chip, Callout, PanelSkeleton, FactGrid, Fact, TabError, YamlBlock, Button, TextLink } from '../../kit/kit.esm.js';
 import '../../kit/components.esm.js';
 import '../../kit/FlightLog.esm.js';
 import '../../kit/transport.esm.js';
@@ -30,7 +30,7 @@ function AttestationDetail({ row, onOpenChange }) {
   const id = encodeURIComponent(row.change_id);
   const config = usePoll("attestation-config", () => api.get("/v1/attestation-config").catch(() => void 0), 0);
   const verifiable = verifiableOf(config);
-  const change = usePoll(`clearance-${row.change_id}`, () => api.get(`/v1/clearances/${id}`).catch(() => void 0), 3e4);
+  const change = usePoll(`clearance-${row.change_id}`, () => api.get(`/v1/clearances/${id}`), 3e4);
   const verify = usePoll(
     `attestation-verify-${row.change_id}-${row.digest}-${verifiable}`,
     () => verifiable ? api.get(`/v1/clearances/${id}/attestation/verify`).catch((e) => e instanceof ReadError && e.status === 404 ? void 0 : Promise.reject(e)) : Promise.resolve(void 0),
@@ -128,7 +128,9 @@ function AttestationDetail({ row, onOpenChange }) {
       ] }),
       keyless && !verify.data && (identity || issuer) && /* @__PURE__ */ jsx("span", { className: c.selectable, children: "The identity shown is the one this Clearance trusts; the server verify confirms the certificate matches it." })
     ] }) }),
-    change.data ? /* @__PURE__ */ jsx(ChangeHistory, { change: change.data }) : /* @__PURE__ */ jsx(PanelSkeleton, { rows: 2, label: "Loading the change history\u2026" }),
+    change.data && /* @__PURE__ */ jsx(ChangeHistory, { change: change.data }),
+    !change.data && change.error && /* @__PURE__ */ jsx("div", { className: c.pad, children: /* @__PURE__ */ jsx(TabError, { error: change.failure ?? change.error, what: "the change history", onRetry: change.refresh }) }),
+    !change.data && !change.error && /* @__PURE__ */ jsx(PanelSkeleton, { rows: 2, label: "Loading the change history\u2026" }),
     /* @__PURE__ */ jsx(Section, { framed: true, level: 2, "aria-label": "Verify and download", title: "Verify it yourself", children: /* @__PURE__ */ jsxs("div", { className: c.pad, children: [
       commands && /* @__PURE__ */ jsx(YamlBlock, { title: "Offline verify command", text: commands, "aria-label": "Offline verify command", maxHeight: 200 }),
       /* @__PURE__ */ jsxs("div", { className: c.actions, children: [
