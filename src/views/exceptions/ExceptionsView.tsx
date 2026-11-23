@@ -607,6 +607,7 @@ export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initia
   const [selected, setSelected] = useState<string>();
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
+  const appliedSearch = useRef('');
   const [sort, setSort] = useState<SortId>('newest');
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const win = WINDOWS.find(w => w.id === windowId)!;
@@ -648,7 +649,9 @@ export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initia
   useEffect(() => {
     const id = setTimeout(() => {
       setQuery(search);
-      setSelected(undefined);
+      // Only a changed search closes the open row: the first run must not (a row opened within 200 ms of the mount stayed open).
+      if (search !== appliedSearch.current) setSelected(undefined);
+      appliedSearch.current = search;
     }, 200);
     return () => clearTimeout(id);
   }, [search]);

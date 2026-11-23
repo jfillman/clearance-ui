@@ -1,5 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { RESOLUTION_STATES, RESOLUTION_CAUSES } from '../../kit/types.esm.js';
 import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
@@ -498,6 +498,7 @@ function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow
   const [selected, setSelected] = useState();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const appliedSearch = useRef("");
   const [sort, setSort] = useState("newest");
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const win = WINDOWS.find((w) => w.id === windowId);
@@ -534,7 +535,8 @@ function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow
   useEffect(() => {
     const id = setTimeout(() => {
       setQuery(search);
-      setSelected(void 0);
+      if (search !== appliedSearch.current) setSelected(void 0);
+      appliedSearch.current = search;
     }, 200);
     return () => clearTimeout(id);
   }, [search]);
