@@ -126,7 +126,7 @@ function NamedLimits({ scopes, now }) {
     /* @__PURE__ */ jsx(Hint, { inset: true, children: "A scope with a named limit is never reported clean: what Clearance could not see is listed, not assumed to be fine." })
   ] });
 }
-function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount }) {
+function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount, onScope }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
@@ -139,7 +139,7 @@ function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount }) {
   const active = onTab ? tab : current;
   const go = (t, sc) => onTab ? onTab(t, sc) : setCurrent(t);
   const [pickScope, setPickScope] = useState(scope);
-  const effScope = onTab ? scope : pickScope;
+  const effScope = onTab || onScope ? scope : pickScope;
   return /* @__PURE__ */ jsxs("div", { className: c.page, children: [
     /* @__PURE__ */ jsx(FilterBar, { end: /* @__PURE__ */ jsx(Count, { children: list.length === 0 ? "No scope linked" : `${list.length} ${list.length === 1 ? "scope" : "scopes"}` }), children: /* @__PURE__ */ jsx(FilterChips, { label: "Matrix window", options: HEALTH_WINDOWS, value: days, onChange: setDays }) }),
     scopes.failure !== void 0 && /* @__PURE__ */ jsx(TabError, { error: new Error(readDeniedText(scopes.failure)), what: "the scopes", onRetry: scopes.refresh }),
@@ -156,11 +156,11 @@ function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount }) {
       {
         now,
         initialScope: effScope,
+        onScope: (sc) => onScope ? onScope(sc) : setPickScope(sc),
         initialOpen: true,
         initialWindow: "7d",
         renderResolve: (row, onDone) => /* @__PURE__ */ jsx(ResolvePanel, { row, onDone }, row.seq)
-      },
-      effScope ?? ""
+      }
     ),
     active === "not-attributed" && /* @__PURE__ */ jsx(NotAttributed, { scopes: list, now, onOpen: (sc) => {
       setPickScope(sc);

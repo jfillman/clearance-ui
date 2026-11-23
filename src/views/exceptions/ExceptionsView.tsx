@@ -596,11 +596,19 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
   );
 }
 
-export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve }: { now?: number; initialScope?: string; initialOpen?: boolean; initialWindow?: '24h' | '7d' | '30d'; renderResolve?: ResolveRenderer }) {
+export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve, onScope }: { now?: number; initialScope?: string; onScope?: (scope: string | undefined) => void; initialOpen?: boolean; initialWindow?: '24h' | '7d' | '30d'; renderResolve?: ResolveRenderer }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [scope, setScope] = useState<string | undefined>(initialScope);
+  // A host that owns the URL changes `initialScope` (Back/Forward, a link): the list follows it, keeping its other filters.
+  const seenInitial = useRef(initialScope);
+  useEffect(() => {
+    if (seenInitial.current === initialScope) return;
+    seenInitial.current = initialScope;
+    setScope(initialScope);
+    setSelected(undefined);
+  }, [initialScope]);
   const [windowId, setWindowId] = useState<string>(initialWindow ?? '24h');
   const [klass, setKlass] = useState('all');
   const [open, setOpen] = useState(!!initialOpen);
@@ -712,7 +720,7 @@ export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initia
   return (
     <div className={c.page}>
       <FilterBar end={filterEnd}>
-        <FilterSelect label="Scope" value={active ?? ''} disabled={!scopes.data?.scopes.length} options={(scopes.data?.scopes ?? []).map(s => ({ value: s, label: s }))} onChange={v => { setScope(v); setSelected(undefined); }} />
+        <FilterSelect label="Scope" value={active ?? ''} disabled={!scopes.data?.scopes.length} options={(scopes.data?.scopes ?? []).map(s => ({ value: s, label: s }))} onChange={v => { setScope(v || undefined); setSelected(undefined); onScope?.(v || undefined); }} />
         <FilterChips label="Window" options={WINDOWS.map(w => ({ id: w.id, label: w.label }))} value={windowId} onChange={setWindowId} />
         <FilterChips label="Class" options={[{ id: 'all', label: 'All' }, ...classes.map(k => ({ id: k, label: k }))]} value={klass} onChange={setKlass} />
         <FilterGroup label="Resolution">

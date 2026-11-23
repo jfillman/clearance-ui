@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { MemoryRouter } from 'react-router-dom';
-import { act, fireEvent, render as rtlRender, type RenderOptions, screen, within } from '@testing-library/react';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
+import { act, fireEvent, waitFor, render as rtlRender, type RenderOptions, screen, within } from '@testing-library/react';
 import { ClearanceTransportProvider, createFetchTransport } from '../../kit';
 import { ClearancePage, CLEARANCE_VIEWS } from '../ClearancePage';
 import { CoverageView, type CoverageTab } from './CoverageView';
@@ -238,7 +238,43 @@ describe('a failed or partial read is never clean', () => {
   });
 });
 
+function UrlProbe() {
+  const loc = useLocation();
+  const nav = useNavigate();
+  return (
+    <div>
+      <output aria-label="url">{loc.search}</output>
+      <button type="button" onClick={() => nav(-1)}>history back</button>
+    </div>
+  );
+}
+
 describe('the scope follows the URL', () => {
+  it('the Scope selector writes the scope to the URL, and Back restores the previous scope and the list follows', async () => {
+    scopeList = ['acct-1', 'acct-2'];
+    entry = '/?view=coverage&tab=open&scope=acct-1';
+    await act(async () => {
+      render(<><UrlProbe /><ClearancePage /></>);
+    });
+    await act(async () => {});
+    const select = () => screen.getByLabelText('Scope') as HTMLSelectElement;
+    expect(select().value).toBe('acct-1');
+    await act(async () => {
+      fireEvent.change(select(), { target: { value: 'acct-2' } });
+    });
+    await act(async () => {});
+    expect(screen.getByLabelText('url').textContent).toContain('scope=acct-2');
+    expect(screen.getByLabelText('url').textContent).toContain('tab=open');
+    expect(select().value).toBe('acct-2');
+    await waitFor(() => expect(calls.some(p => p.startsWith('/v1/coverage?') && p.includes('scope=acct-2'))).toBe(true));
+    await act(async () => {
+      fireEvent.click(screen.getByText('history back'));
+    });
+    await act(async () => {});
+    expect(screen.getByLabelText('url').textContent).toContain('scope=acct-1');
+    expect(select().value).toBe('acct-1');
+  });
+
   it('a tab click keeps the scope in the URL (an explicit scope still wins)', async () => {
     scopeList = ['acct-1', 'acct-2'];
     entry = '/?view=coverage&tab=open&scope=acct-2';
@@ -266,7 +302,8 @@ describe('the scope follows the URL', () => {
     });
     await act(async () => {});
     expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-2');
-    expect(calls.some(p => p.startsWith('/v1/coverage?') && p.includes('scope=acct-2'))).toBe(true);
+    // the list itself follows: its banner is now acct-2's
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Coverage of acct-2' })).toBeTruthy());
   });
 });
 

@@ -63,7 +63,7 @@ function ClearancePage() {
       view !== "coverage" && view !== "policy" && view !== "attestations" && view !== "map" && /* @__PURE__ */ jsx(CoverageStrip, {}),
       view === "clearances" && /* @__PURE__ */ jsx(ClearancesView, { initial: params.get("change") ?? void 0 }),
       view === "evidence" && /* @__PURE__ */ jsx(EvidenceView, { initialApp: params.get("app") ?? void 0 }),
-      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: openBadge, onTab: (t2, scope) => {
+      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: openBadge, onScope: (scope) => setParams({ view: "coverage", tab: coverageTab, ...scope ? { scope } : {} }), onTab: (t2, scope) => {
         const keep = scope ?? params.get("scope");
         setParams({ view: "coverage", tab: t2, ...keep ? { scope: keep } : {} });
       } }),

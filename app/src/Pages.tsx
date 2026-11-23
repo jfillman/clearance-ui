@@ -65,7 +65,7 @@ function CoveragePage() {
   const open = useOpenExceptionCount(useMountedNow());
   return (
     <Page view="coverage" coverage={false}>
-      <CoverageView tab={isCoverageTab(rawTab) ? rawTab : 'open'} scope={params.get('scope') ?? undefined} openCount={open.failed ? '?' : open.count} onTab={(t, scope) => { const keep = scope ?? params.get('scope'); setParams({ tab: t, ...(keep ? { scope: keep } : {}) }); }} />
+      <CoverageView tab={isCoverageTab(rawTab) ? rawTab : 'open'} scope={params.get('scope') ?? undefined} openCount={open.failed ? '?' : open.count} onScope={scope => setParams({ tab: isCoverageTab(rawTab) ? rawTab : 'open', ...(scope ? { scope } : {}) })} onTab={(t, scope) => { const keep = scope ?? params.get('scope'); setParams({ tab: t, ...(keep ? { scope: keep } : {}) }); }} />
     </Page>
   );
 }

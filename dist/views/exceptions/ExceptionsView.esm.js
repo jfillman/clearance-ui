@@ -1,5 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { RESOLUTION_STATES, RESOLUTION_CAUSES } from '../../kit/types.esm.js';
 import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
@@ -487,11 +487,18 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
     } })
   ] });
 }
-function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve }) {
+function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve, onScope }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [scope, setScope] = useState(initialScope);
+  const seenInitial = useRef(initialScope);
+  useEffect(() => {
+    if (seenInitial.current === initialScope) return;
+    seenInitial.current = initialScope;
+    setScope(initialScope);
+    setSelected(void 0);
+  }, [initialScope]);
   const [windowId, setWindowId] = useState(initialWindow ?? "24h");
   const [klass, setKlass] = useState("all");
   const [open, setOpen] = useState(!!initialOpen);
@@ -592,8 +599,9 @@ function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow
   return /* @__PURE__ */ jsxs("div", { className: c.page, children: [
     /* @__PURE__ */ jsxs(FilterBar, { end: filterEnd, children: [
       /* @__PURE__ */ jsx(FilterSelect, { label: "Scope", value: active ?? "", disabled: !scopes.data?.scopes.length, options: (scopes.data?.scopes ?? []).map((s) => ({ value: s, label: s })), onChange: (v) => {
-        setScope(v);
+        setScope(v || void 0);
         setSelected(void 0);
+        onScope?.(v || void 0);
       } }),
       /* @__PURE__ */ jsx(FilterChips, { label: "Window", options: WINDOWS.map((w) => ({ id: w.id, label: w.label })), value: windowId, onChange: setWindowId }),
       /* @__PURE__ */ jsx(FilterChips, { label: "Class", options: [{ id: "all", label: "All" }, ...classes.map((k) => ({ id: k, label: k }))], value: klass, onChange: setKlass }),

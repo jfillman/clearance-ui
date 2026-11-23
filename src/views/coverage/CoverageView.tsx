@@ -185,7 +185,7 @@ function NamedLimits({ scopes, now }: { scopes: string[]; now: number }) {
   );
 }
 
-export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCount }: { now?: number; tab?: CoverageTab; onTab?: (t: CoverageTab, scope?: string) => void; scope?: string; openCount?: number | '?' }) {
+export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCount, onScope }: { now?: number; tab?: CoverageTab; onTab?: (t: CoverageTab, scope?: string) => void; onScope?: (scope: string | undefined) => void; scope?: string; openCount?: number | '?' }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
@@ -198,8 +198,9 @@ export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCou
   const active = onTab ? tab : current;
   const go = (t: CoverageTab, sc?: string) => (onTab ? onTab(t, sc) : setCurrent(t));
   const [pickScope, setPickScope] = useState<string | undefined>(scope);
-  // With a host that owns the URL (onTab), the `scope` prop is the truth, Back and Forward included; the list is keyed on it so it follows.
-  const effScope = onTab ? scope : pickScope;
+  // With a host that owns the URL (onTab/onScope), the `scope` prop is the truth, Back and Forward included: the Scope selector writes to it
+  // through onScope and the list follows it. Without a host callback the page keeps the scope itself.
+  const effScope = onTab || onScope ? scope : pickScope;
   return (
     <div className={c.page}>
       <FilterBar end={<Count>{list.length === 0 ? 'No scope linked' : `${list.length} ${list.length === 1 ? 'scope' : 'scopes'}`}</Count>}>
@@ -214,9 +215,9 @@ export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCou
       <Subtabs label="Coverage details" tabs={COVERAGE_TABS.map(t => ({ id: t.id, label: t.label, count: t.id === 'open' ? openCount : undefined, countTitle: t.id === 'open' && openCount === '?' ? OPEN_UNKNOWN_TITLE : undefined }))} value={active} onChange={id => go(id)} />
       {active === 'open' && (
         <ExceptionsView
-          key={effScope ?? ''}
           now={now}
           initialScope={effScope}
+          onScope={sc => (onScope ? onScope(sc) : setPickScope(sc))}
           initialOpen
           initialWindow="7d"
           renderResolve={(row, onDone) => <ResolvePanel key={row.seq} row={row} onDone={onDone} />}

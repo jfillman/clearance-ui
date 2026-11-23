@@ -1544,10 +1544,11 @@ declare const COVERAGE_TABS: Array<{
     label: string;
 }>;
 declare const isCoverageTab: (v: string | null | undefined) => v is CoverageTab;
-declare function CoverageView({ now: nowProp, tab, onTab, scope, openCount }: {
+declare function CoverageView({ now: nowProp, tab, onTab, scope, openCount, onScope }: {
     now?: number;
     tab?: CoverageTab;
     onTab?: (t: CoverageTab, scope?: string) => void;
+    onScope?: (scope: string | undefined) => void;
     scope?: string;
     openCount?: number | '?';
 }): react.JSX.Element;
@@ -1612,9 +1613,10 @@ interface Row {
     gate: boolean;
 }
 type ResolveRenderer = (row: Row, onDone: (text: string, record?: ObservationRecord) => void) => ReactNode;
-declare function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve }: {
+declare function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve, onScope }: {
     now?: number;
     initialScope?: string;
+    onScope?: (scope: string | undefined) => void;
     initialOpen?: boolean;
     initialWindow?: '24h' | '7d' | '30d';
     renderResolve?: ResolveRenderer;
