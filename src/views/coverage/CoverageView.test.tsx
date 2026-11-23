@@ -250,6 +250,45 @@ function UrlProbe() {
 }
 
 describe('the scope follows the URL', () => {
+  it('a host with onScope but no onTab: "Open" on a Not attributed row opens the list on that row\'s scope', async () => {
+    scopeList = ['acct-1', 'acct-2'];
+    const onScope = jest.fn();
+    let utils: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(<CoverageView now={NOW} scope="acct-1" onScope={onScope} />);
+    });
+    await act(async () => {});
+    await openTab('Not attributed');
+    // the row is acct-2's: acct-2 has its own statement here
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /in open exceptions/ })[0]);
+    });
+    expect(onScope).toHaveBeenCalledTimes(1);
+    const sc = onScope.mock.calls[0][0];
+    expect(['acct-1', 'acct-2']).toContain(sc);
+    expect(screen.getByRole('tab', { name: /Open exceptions/ }).getAttribute('aria-selected')).toBe('true');
+    // the host answers by passing the scope back: the list is on it
+    await act(async () => {
+      utils!.rerender(<CoverageView now={NOW} scope={sc} onScope={onScope} />);
+    });
+    await act(async () => {});
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe(sc);
+  });
+
+  it('with onTab the scope travels once, through onTab, and onScope is not also called', async () => {
+    const onTab = jest.fn();
+    const onScope = jest.fn();
+    await act(async () => {
+      render(<CoverageView now={NOW} tab="not-attributed" scope="acct-1" onTab={onTab} onScope={onScope} />);
+    });
+    await act(async () => {});
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /in open exceptions/ })[0]);
+    });
+    expect(onTab).toHaveBeenCalledWith('open', 'acct-1');
+    expect(onScope).not.toHaveBeenCalled();
+  });
+
   it('the Scope selector writes the scope to the URL, and Back restores the previous scope and the list follows', async () => {
     scopeList = ['acct-1', 'acct-2'];
     entry = '/?view=coverage&tab=open&scope=acct-1';

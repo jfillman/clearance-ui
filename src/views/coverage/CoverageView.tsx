@@ -223,7 +223,14 @@ export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCou
           renderResolve={(row, onDone) => <ResolvePanel key={row.seq} row={row} onDone={onDone} />}
         />
       )}
-      {active === 'not-attributed' && <NotAttributed scopes={list} now={now} onOpen={sc => { setPickScope(sc); go('open', sc); }} />}
+      {active === 'not-attributed' && <NotAttributed scopes={list} now={now} onOpen={sc => {
+        // With onTab the host takes the scope from go() (one URL update, not two that could conflict); otherwise the scope goes to onScope, or is kept here.
+        if (!onTab) {
+          if (onScope) onScope(sc);
+          else setPickScope(sc);
+        }
+        go('open', sc);
+      }} />}
       {active === 'limits' && <NamedLimits scopes={list} now={now} />}
     </div>
   );

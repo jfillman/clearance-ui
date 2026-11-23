@@ -163,7 +163,10 @@ function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount, onS
       }
     ),
     active === "not-attributed" && /* @__PURE__ */ jsx(NotAttributed, { scopes: list, now, onOpen: (sc) => {
-      setPickScope(sc);
+      if (!onTab) {
+        if (onScope) onScope(sc);
+        else setPickScope(sc);
+      }
       go("open", sc);
     } }),
     active === "limits" && /* @__PURE__ */ jsx(NamedLimits, { scopes: list, now })
