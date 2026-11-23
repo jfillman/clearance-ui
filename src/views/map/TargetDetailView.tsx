@@ -100,7 +100,7 @@ export function TargetDetailView({ id, win, onWindow, onBack, onNavigate }: { id
   const flagged = node.gates.filter(g => g.mode === 'flag' && !g.silent).length;
   const blind = node.observers.some(o => o.state === 'blind');
   const evidenceParams: Record<string, string> = { view: 'evidence', ...(node.app ? { app: node.app } : {}) };
-  const exceptionParams: Record<string, string> = { view: 'exceptions', ...(node.scope ? { scope: node.scope } : {}) };
+  const exceptionParams: Record<string, string> = { view: 'coverage', tab: 'open', ...(node.scope ? { scope: node.scope } : {}) };
   const laneRows = node.gates.map(g => ({ key: g.instance, label: gateName(g.type), sub: g.instance, mode: g.mode, silent: g.silent, lanes: g.lanes, holding: g.holding, refused: g.refused, blind }));
   return (
     <>

@@ -196,7 +196,7 @@ it("a core refusal comes back in its own words (admins only)", async () => {
     fireEvent.click(screen.getByText('Record resolution'));
   });
   // findBy: the refusal arrives after the write settles, which under a loaded CI run is later than act() waits.
-  expect((await screen.findByRole('alert')).textContent).toContain('BACKSTAGE-ADMIN');
+  expect((await screen.findByRole('alert', {}, { timeout: 5000 })).textContent).toContain('BACKSTAGE-ADMIN');
   expect(screen.getByRole('alert').textContent).toContain('admins only');
 });
 

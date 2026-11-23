@@ -7,13 +7,16 @@ import {
   CLEARANCE_VIEWS,
   ClearancesView,
   CoverageStrip,
+  CoverageView,
   EvidenceView,
-  ExceptionsView,
+  isCoverageTab,
+  useOpenExceptionCount,
   fontBody,
   MapTab,
   PageHeader,
   PolicyView,
   ProductMark,
+  useMountedNow,
   useClearanceTokens,
   type ClearanceTokens,
   type ClearanceView,
@@ -56,9 +59,22 @@ function EvidencePage() {
   return <Page view="evidence"><EvidenceView key={app ?? ''} initialApp={app} /></Page>;
 }
 
-function ExceptionsPage() {
+function CoveragePage() {
+  const [params, setParams] = useSearchParams();
+  const rawTab = params.get('tab');
+  const open = useOpenExceptionCount(useMountedNow());
+  return (
+    <Page view="coverage" coverage={false}>
+      <CoverageView tab={isCoverageTab(rawTab) ? rawTab : 'open'} scope={params.get('scope') ?? undefined} openCount={open.count} onTab={(t, scope) => setParams({ tab: t, ...(scope ? { scope } : {}) })} />
+    </Page>
+  );
+}
+
+// The old Exceptions link (the Map's, a pasted URL): the same list, now the Coverage page's Open exceptions tab.
+function ExceptionsRedirect() {
   const [params] = useSearchParams();
-  return <Page view="exceptions" coverage={false}><ExceptionsView initialScope={params.get('scope') ?? undefined} /></Page>;
+  const scope = params.get('scope');
+  return <Navigate to={`/coverage?tab=open${scope ? `&scope=${encodeURIComponent(scope)}` : ''}`} replace />;
 }
 
 function AttestationsPage() {
@@ -91,7 +107,8 @@ export function Pages() {
       <Route path="/" element={<Navigate to="/clearances" replace />} />
       <Route path="/clearances" element={<ClearancesPage />} />
       <Route path="/evidence" element={<EvidencePage />} />
-      <Route path="/exceptions" element={<ExceptionsPage />} />
+      <Route path="/coverage" element={<CoveragePage />} />
+      <Route path="/exceptions" element={<ExceptionsRedirect />} />
       <Route path="/attestations" element={<AttestationsPage />} />
       <Route path="/map" element={<MapPage />} />
       <Route path="/policy" element={<PolicyPage />} />

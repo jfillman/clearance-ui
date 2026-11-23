@@ -330,7 +330,7 @@ describe('the environment detail', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Evidence →' }));
       fireEvent.click(screen.getByRole('button', { name: 'Exceptions →' }));
     });
-    expect(nav.slice(1)).toEqual([{ view: 'evidence', app: 'gate-api' }, { view: 'exceptions', scope: 'hangar-prod' }]);
+    expect(nav.slice(1)).toEqual([{ view: 'evidence', app: 'gate-api' }, { view: 'coverage', tab: 'open', scope: 'hangar-prod' }]);
     // the breadcrumb goes back to the map
     await act(async () => {
       fireEvent.click(within(crumbs).getByRole('button', { name: 'Map' }));
@@ -366,7 +366,7 @@ describe('in the Clearance page', () => {
   it('has a Map tab beside the others, and ?view=map shows it', async () => {
     await page('/clearance?view=map');
     const tabs = within(screen.getByRole('tablist', { name: 'Clearance sections' })).getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Clearances', 'Evidence', 'Exceptions', 'Attestations', 'Map', 'Policy']);
+    expect(tabs).toEqual(['Clearances', 'Evidence', 'Coverage', 'Attestations', 'Map', 'Policy']);
     expect(screen.getByRole('group', { name: /Coverage topology/ })).toBeTruthy();
   });
 

@@ -43,7 +43,7 @@ describe.each(PAGES.map(p => [p.label, p.path]))('%s', (label, path) => {
 it('has a link for each of the six pages and nothing else', async () => {
   await show('/evidence');
   const nav = screen.getByRole('navigation', { name: 'Clearance pages' });
-  expect(Array.from(nav.querySelectorAll('a')).map(a => a.textContent)).toEqual(['Clearances', 'Evidence', 'Exceptions', 'Attestations', 'Map', 'Policy']);
+  expect(Array.from(nav.querySelectorAll('a')).map(a => a.textContent)).toEqual(['Clearances', 'Evidence', 'Coverage', 'Attestations', 'Map', 'Policy']);
 });
 
 it('the app picker lists the apps Clearance has seen, and keeps the picked app on the nav links', async () => {
