@@ -52,8 +52,8 @@ export function useOpenExceptionCount(now: number): { count?: number; loading: b
   );
   if (scopes.failure) return { loading: false, failed: true };
   if (scopes.data === undefined) return { loading: true };
-  // Any read that failed with nothing to show is unknown, whatever else arrived.
-  if (covs.some(c => c.data === undefined && c.failure !== undefined) || (gate.data === undefined && gate.failure !== undefined) || (res.data === undefined && res.failure !== undefined)) return { loading: false, failed: true };
+  // Any read whose latest try failed makes the count unknown, even when older data is retained: that data may be stale.
+  if (covs.some(c => c.failure !== undefined) || gate.failure !== undefined || res.failure !== undefined) return { loading: false, failed: true };
   if (covs.some(c => c.data === undefined) || gate.data === undefined || res.data === undefined) return { loading: true };
   const obs = covs.flatMap(c => observationRows(c.scope, c.data, [], [])).filter(r => r.resolvable && !r.resolution).length;
   const gates = gateRows(gateItems, res.data.items).filter(r => r.resolvable && !r.resolution).length;

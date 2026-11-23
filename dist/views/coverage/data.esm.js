@@ -51,7 +51,7 @@ function useOpenExceptionCount(now) {
   );
   if (scopes.failure) return { loading: false, failed: true };
   if (scopes.data === void 0) return { loading: true };
-  if (covs.some((c) => c.data === void 0 && c.failure !== void 0) || gate.data === void 0 && gate.failure !== void 0 || res.data === void 0 && res.failure !== void 0) return { loading: false, failed: true };
+  if (covs.some((c) => c.failure !== void 0) || gate.failure !== void 0 || res.failure !== void 0) return { loading: false, failed: true };
   if (covs.some((c) => c.data === void 0) || gate.data === void 0 || res.data === void 0) return { loading: true };
   const obs = covs.flatMap((c) => observationRows(c.scope, c.data, [], [])).filter((r) => r.resolvable && !r.resolution).length;
   const gates = gateRows(gateItems, res.data.items).filter((r) => r.resolvable && !r.resolution).length;

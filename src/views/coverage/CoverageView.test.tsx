@@ -163,6 +163,26 @@ describe('the Coverage route', () => {
 });
 
 describe('a failed or partial read is never clean', () => {
+  it('a failed refresh turns a count that was known into "?" even though the older data is kept', async () => {
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        render(<ClearancePage />);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1000);
+      });
+      expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).toBe('Coverage3');
+      exceptionsStatus = 403; // the gate-exceptions poll's next try (every 60 s) fails; its data from before stays
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(61_000);
+      });
+      expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).toBe('Coverage?');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('the nav count is "?" (not 0, not a partial number) when a read it needs failed, and 0 shows nothing when the reads succeed', async () => {
     exceptionsStatus = 403;
     await act(async () => {
@@ -219,6 +239,20 @@ describe('a failed or partial read is never clean', () => {
 });
 
 describe('the scope follows the URL', () => {
+  it('a tab click keeps the scope in the URL (an explicit scope still wins)', async () => {
+    scopeList = ['acct-1', 'acct-2'];
+    entry = '/?view=coverage&tab=open&scope=acct-2';
+    await act(async () => {
+      render(<ClearancePage />);
+    });
+    await act(async () => {});
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-2');
+    await openTab('Named limits');
+    await openTab('Open exceptions');
+    // the scope survived two tab changes: the list is still on acct-2
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-2');
+  });
+
   it('a changed scope prop (Back/Forward with the tab mounted) changes the list\'s scope', async () => {
     scopeList = ['acct-1', 'acct-2'];
     let utils: ReturnType<typeof render>;

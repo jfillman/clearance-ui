@@ -63,7 +63,10 @@ function ClearancePage() {
       view !== "coverage" && view !== "policy" && view !== "attestations" && view !== "map" && /* @__PURE__ */ jsx(CoverageStrip, {}),
       view === "clearances" && /* @__PURE__ */ jsx(ClearancesView, { initial: params.get("change") ?? void 0 }),
       view === "evidence" && /* @__PURE__ */ jsx(EvidenceView, { initialApp: params.get("app") ?? void 0 }),
-      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: openBadge, onTab: (t2, scope) => setParams({ view: "coverage", tab: t2, ...scope ? { scope } : {} }) }),
+      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: openBadge, onTab: (t2, scope) => {
+        const keep = scope ?? params.get("scope");
+        setParams({ view: "coverage", tab: t2, ...keep ? { scope: keep } : {} });
+      } }),
       view === "map" && /* @__PURE__ */ jsx(MapTab, { target: params.get("target") ?? void 0, onOpenTarget: (id) => setParams(id ? { view: "map", target: id } : { view: "map" }), onNavigate: (p) => setParams(p) }),
       view === "attestations" && /* @__PURE__ */ jsx(AttestationsView, { initial: params.get("change") ?? void 0, onOpenChange: (id) => setParams({ view: "clearances", change: id }) }),
       view === "policy" && /* @__PURE__ */ jsx(PolicyView, {})

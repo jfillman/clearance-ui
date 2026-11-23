@@ -54,7 +54,7 @@ export function ClearancePage() {
         {view !== 'coverage' && view !== 'policy' && view !== 'attestations' && view !== 'map' && <CoverageStrip />}
         {view === 'clearances' && <ClearancesView initial={params.get('change') ?? undefined} />}
         {view === 'evidence' && <EvidenceView initialApp={params.get('app') ?? undefined} />}
-        {view === 'coverage' && <CoverageView now={now} tab={coverageTab} scope={params.get('scope') ?? undefined} openCount={openBadge} onTab={(t, scope) => setParams({ view: 'coverage', tab: t, ...(scope ? { scope } : {}) })} />}
+        {view === 'coverage' && <CoverageView now={now} tab={coverageTab} scope={params.get('scope') ?? undefined} openCount={openBadge} onTab={(t, scope) => { const keep = scope ?? params.get('scope'); setParams({ view: 'coverage', tab: t, ...(keep ? { scope: keep } : {}) }); }} />}
         {view === 'map' && <MapTab target={params.get('target') ?? undefined} onOpenTarget={id => setParams(id ? { view: 'map', target: id } : { view: 'map' })} onNavigate={p => setParams(p)} />}
         {view === 'attestations' && <AttestationsView initial={params.get('change') ?? undefined} onOpenChange={id => setParams({ view: 'clearances', change: id })} />}
         {view === 'policy' && <PolicyView />}
