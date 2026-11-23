@@ -92,11 +92,31 @@ export function buildHealthMatrix(scopes: string[], byScope: Record<string, Obse
   return { days, rows };
 }
 
-/** The matrix's headline: scopes that were not healthy on some day of the window, and scopes with no record today. */
-export function matrixSummary(m: HealthMatrix): { scopes: number; unhealthy: number; silentToday: number } {
-  return {
-    scopes: m.rows.length,
-    unhealthy: m.rows.filter(r => r.cells.some(c => c.state === 'degraded' || c.state === 'blind')).length,
-    silentToday: m.rows.filter(r => r.cells[r.cells.length - 1]?.state === 'none').length,
-  };
+export interface MatrixSummary {
+  scopes: number;
+  /** Scopes with a degraded or blind day, or a day with no record (no record is never healthy). */
+  unhealthy: number;
+  /** Scopes with no health record today. */
+  silentToday: number;
+  /** Days (over all scopes) that were not, or only partly, read: unknown, never counted healthy. */
+  notLoaded: number;
+  /** Scopes whose health could not be read at all: unknown. */
+  unread: number;
+}
+
+/** The matrix's headline numbers. Anything not read is counted as unknown, never as healthy. */
+export function matrixSummary(m: HealthMatrix): MatrixSummary {
+  const out: MatrixSummary = { scopes: m.rows.length, unhealthy: 0, silentToday: 0, notLoaded: 0, unread: 0 };
+  for (const r of m.rows) {
+    if (r.error) {
+      out.unread += 1;
+      continue;
+    }
+    const unknown = (c: MatrixCell) => !!c.partial && (c.state === 'none' || c.state === 'healthy');
+    out.notLoaded += r.cells.filter(unknown).length;
+    if (r.cells.some(c => c.state === 'degraded' || c.state === 'blind' || (c.state === 'none' && !c.partial))) out.unhealthy += 1;
+    const last = r.cells[r.cells.length - 1];
+    if (last && last.state === 'none' && !last.partial) out.silentToday += 1;
+  }
+  return out;
 }

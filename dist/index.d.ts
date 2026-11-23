@@ -856,13 +856,14 @@ declare function TextLink({ href, onClick, title, expanded, disabled, 'aria-labe
     'aria-controls'?: string;
     children: ReactNode;
 }): react.JSX.Element;
-/** A tab bar. A tab's `count` (an open-items number) reads after its label and in its accessible name; 0 and undefined show nothing. */
+/** A tab bar. A tab's `count` (an open-items number, or '?' when it is unknown, with `countTitle` saying why) reads after its label and in its accessible name; 0 and undefined show nothing. */
 declare function Subtabs<T extends string>({ label, tabs, value, onChange }: {
     label: string;
     tabs: Array<{
         id: T;
         label: string;
-        count?: number;
+        count?: number | '?';
+        countTitle?: string;
     }>;
     value: T;
     onChange: (id: T) => void;
@@ -1548,17 +1549,20 @@ declare function CoverageView({ now: nowProp, tab, onTab, scope, openCount }: {
     tab?: CoverageTab;
     onTab?: (t: CoverageTab, scope?: string) => void;
     scope?: string;
-    openCount?: number;
+    openCount?: number | '?';
 }): react.JSX.Element;
 
+declare const OPEN_UNKNOWN_TITLE = "The open-exception count could not be read, so it is unknown. It is not zero.";
 /**
  * The open-exceptions count for the nav: what Clearance saw and did not clear with no resolution yet (the coverage statements),
  * plus the gate's own exceptions of a kind a person can resolve with none. An operation on the monitoring itself is never
- * resolvable, so it is not counted as something to do (the list still shows it). undefined until it is known.
+ * resolvable, so it is not counted as something to do (the list still shows it). `count` is undefined while it loads and
+ * when ANY required read failed (`failed`): a partial read is never shown as a number. A successful empty read is 0.
  */
 declare function useOpenExceptionCount(now: number): {
     count?: number;
     loading: boolean;
+    failed?: boolean;
 };
 
 type ResolveChoiceId = 'revert' | 'adopt' | 'accept' | 'break-glass';
@@ -1635,5 +1639,5 @@ declare function PolicyView({ now: nowProp }: {
     now?: number;
 }): react.JSX.Element;
 
-export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, COVERAGE_TABS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, CoverageView, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, READ_TIMEOUT_MS, RESOLUTION_CAUSES, RESOLUTION_STATES, RESOLVE_CHOICES, RUNS_IN_TEXT, ReadError, ReadUnreachable, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Time, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, dateTimeShort, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isCoverageTab, isTransient, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, resolutionFor, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, useOpenExceptionCount, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy, utcDateTime, whenTitle };
+export { ActionReason, AttestationsView, BASELINE_POLICY, BULK_RESOLUTION_LIMIT, BudgetBar, BudgetBars, Button, CLEARANCE_VIEWS, COVERAGE_ABORT_GRACE_MS, COVERAGE_BACKOFF_BASE_MS, COVERAGE_BACKOFF_CAP_MS, COVERAGE_CONCURRENCY, COVERAGE_MAX_STALE_MS, COVERAGE_POLL_MS, COVERAGE_REFOCUS_MS, COVERAGE_REQUEST_MS, COVERAGE_RETRY_AFTER_MAX_MS, COVERAGE_TABS, Callout, Card, ChangeProof, Checkbox, Chip, ClearanceDetail, ClearancePage, ClearanceTransportProvider, ClearancesView, ColumnLabel, ControlError, CopyButton, Count, CoverageBanner, CoveragePoller, CoverageStrip, CoverageView, DEFAULT_PAGE_SIZE, DecisionChip, EmptyNote, EvidenceView, ExceptionsView, ExpandRow, FLIGHT_LOG_MAX_HEIGHT, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterInput, FilterSelect, FlightLog, Hint, IconButton, KindChip, MapTab, NOT_TIERED, OPEN_UNKNOWN_TITLE, PAGE_SIZES, PageHeader, Pager, Panel, PanelSkeleton, PolicyView, ProductMark, READ_TIMEOUT_MS, RESOLUTION_CAUSES, RESOLUTION_STATES, RESOLVE_CHOICES, RUNS_IN_TEXT, ReadError, ReadUnreachable, SearchField, Section, SectionLabel, SectionTitle, SessionBudgets, Skeleton, Stat, StatRow, StateChip, StatusChip, Subtabs, TIER_FLOOR_NOTE, TabError, TabSkeleton, TextLink, TierBadge, TierChip, TierFilter, TierKey, TierMix, Tile, Time, Tooltip, TransportError, VerifiedClaimed, YamlBlock, clock, compact, coveragePollerFor, createFakeTransport, createFetchTransport, dateTime, dateTimeShort, fontBody, fontDisplay, fontMono, fontScale, formatMinutes, healthTone, isBusyStatus, isCoverageTab, isTransient, isWorkload, outcomeLabel, pageSlice, parseRetryAfter, preventFocusScroll, ratio, readDeniedText, relativeTime, resolutionFor, retryDelayMs, runsInOf, shortPrincipal, stateTone, statusOf, stillNeeds, summarize, summarizeCoverage, tierCountsOf, tierDefs, tierTone, tierWhy, tokensForTheme, useClearanceRead, useClearanceTokens, useClearanceTransport, useClearanceWrite, useCoverage, useCoveragePoll, useInputClass, useMountedNow, useOneOpen, useOpenExceptionCount, usePoll, useScopes, useTableKit, useTextLinkClass, useTierPolicy, utcDateTime, whenTitle };
 export type { AgentDefinitionView, AgentRunStarted, AgentSource, AgentsList, AttestationConfig, AttestationRow, BannerSummary, BulkResolutionRecorded, ButtonVariant, CalloutTone, Change, ChangeApproval, ChangeAttestation, ChangeObject, ChangeOutcome, ChangeReason, ChangeRecordItem, ChangeRequirement, ChangeState, ClearanceRead, ClearanceTokens, ClearanceTransport, ClearanceView, ClearanceWrite, ControlRefusal, CoverageBannerProps, CoverageHealth, CoveragePollerOptions, CoverageRead, CoverageSnapshot, CoverageStatement, CoverageTab, Decision, DefinitionDrift, EventHistory, EvidenceRecord, ExpandRowProps, FakeAnswer, FakeCall, FakeTransport, FetchLike, FetchTransportOptions, FilterOption, GatePolicy, Hold, HumanRequest, ObservationRecord, ObserveItem, ObservePart, ObserveSegment, ObserveSourceHealth, Page, Params, Polled, Product, Query, ReadOptions, RecordRef, RejectedPin, Resolution, ResolutionCause, ResolutionRecorded, ResolutionState, ResolveChoice, ResolveChoiceId, RunResult, RunsIn, RuntimeCatalog, RuntimeEntry, ScopeList, Session, SessionLimits, SessionOutcome, SessionState, StatusTone, TaskTree, Tier, TierCounts, TierDef, TierPolicy, TimeOptions, Tone, VerificationBrief, VerifyAnswer };

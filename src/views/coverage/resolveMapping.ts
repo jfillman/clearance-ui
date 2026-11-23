@@ -1,7 +1,7 @@
 import { RESOLUTION_CAUSES, type Resolution, type ResolutionCause, type ResolutionState } from '../../kit';
 
 // THE mapping from the Resolve panel's choices to the resolution state Clearance records (owner decision, board A-10 a,
-// 2026-11-21). It is one table: changing what a choice records is changing one line here, and nothing else in the UI
+// 2026-11-23). It is one table: changing what a choice records is changing one line here, and nothing else in the UI
 // names a state for a choice. Every choice appends a resolution record (POST /v1/observations/{seq}/resolution); none
 // removes or edits the exception, and the newest record about it is how it reads.
 //

@@ -39,6 +39,10 @@ let admin = true;
 let scopeList = ['acct-1'];
 let postStatus = 200;
 let entry = '/?view=coverage';
+let coverageStatus = 200;
+let exceptionsStatus = 200;
+let healthPage2Fails = false;
+let emptyStatement = false;
 const calls: string[] = [];
 const posts: Array<{ path: string; body: any }> = [];
 const fetchMock = async (url: string, init?: { method?: string; body?: string }) => {
@@ -52,11 +56,21 @@ const fetchMock = async (url: string, init?: { method?: string; body?: string })
   }
   if (path === '/scopes') return j(200, { scopes: scopeList, source: 'config' });
   if (path === '/me') return j(200, { person: 'user:dana', admin });
-  if (path.startsWith('/v1/coverage')) return j(200, statement);
-  if (path.startsWith('/v1/observations/health')) return j(200, { items: healthRecords, next: null });
+  if (path.startsWith('/v1/coverage')) {
+    if (coverageStatus !== 200) return j(coverageStatus, { error: 'GetCoverage needs your own Clearance sign-in' });
+    return j(200, emptyStatement ? { ...statement, seen_not_cleared: { ...statement.seen_not_cleared, count: 0, items: [] } } : statement);
+  }
+  if (path.startsWith('/v1/observations/health')) {
+    if (healthPage2Fails) return path.includes('after=') ? j(403, { error: 'no' }) : j(200, { items: healthRecords, next: 5 });
+    return j(200, { items: healthRecords, next: null });
+  }
   if (path.includes('kind=resolution')) return j(200, { items: [], next: null });
   if (path.startsWith('/v1/observations')) return j(200, { items: observations, next: null });
-  if (path.startsWith('/v1/exceptions')) return j(200, { items: [{ seq: 700, ts: '2026-11-12T08:00:00Z', tool: 'deploy.exception', app: 'gate-api', exception: { kind: 'drift', actor: 'user:x', detail: 'replicas 2 -> 5' } }, { seq: 701, ts: '2026-11-12T08:10:00Z', tool: 'deploy.exception', exception: { kind: 'attempted-refused', actor: 'user:y' } }], next: null });
+  if (path.startsWith('/v1/exceptions') && exceptionsStatus !== 200) return j(exceptionsStatus, { error: 'denied' });
+  if (path.startsWith('/v1/exceptions')) {
+    const gate = [{ seq: 700, ts: '2026-11-12T08:00:00Z', tool: 'deploy.exception', app: 'gate-api', exception: { kind: 'drift', actor: 'user:x', detail: 'replicas 2 -> 5' } }, { seq: 701, ts: '2026-11-12T08:10:00Z', tool: 'deploy.exception', exception: { kind: 'attempted-refused', actor: 'user:y' } }];
+    return j(200, { items: emptyStatement ? [] : gate, next: null });
+  }
   return j(404, { error: 'no' });
 };
 const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
@@ -90,6 +104,10 @@ beforeEach(() => {
   scopeList = ['acct-1'];
   postStatus = 200;
   entry = '/?view=coverage';
+  coverageStatus = 200;
+  exceptionsStatus = 200;
+  healthPage2Fails = false;
+  emptyStatement = false;
   calls.length = 0;
   posts.length = 0;
 });
@@ -141,6 +159,80 @@ describe('the Coverage route', () => {
     expect(obs.getByText('role/ci')).toBeTruthy();
     expect(obs.getByText('trail/main')).toBeTruthy();
     expect(within(screen.getByRole('region', { name: 'Gate exceptions' })).getByText('drift')).toBeTruthy();
+  });
+});
+
+describe('a failed or partial read is never clean', () => {
+  it('the nav count is "?" (not 0, not a partial number) when a read it needs failed, and 0 shows nothing when the reads succeed', async () => {
+    exceptionsStatus = 403;
+    await act(async () => {
+      render(<ClearancePage />);
+    });
+    await act(async () => {});
+    expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).toBe('Coverage?');
+    expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).not.toMatch(/\d/);
+  });
+
+  it('a successful empty read is a count of 0: no badge, no question mark', async () => {
+    emptyStatement = true;
+    await act(async () => {
+      render(<ClearancePage />);
+    });
+    await act(async () => {});
+    expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).toBe('Coverage');
+  });
+
+  it('the count is "?" when a coverage statement could not be read', async () => {
+    coverageStatus = 403;
+    await act(async () => {
+      render(<ClearancePage />);
+    });
+    await act(async () => {});
+    expect(screen.getByRole('tab', { name: /Coverage/ }).textContent).toBe('Coverage?');
+  });
+
+  it('Named limits does not say every feed reported when the coverage could not be read: it names the scope as not read', async () => {
+    coverageStatus = 403;
+    await open();
+    await openTab('Named limits');
+    const panel = screen.getByRole('region', { name: 'Named limits' });
+    expect(panel.textContent).toContain('Not read: the coverage of acct-1 could not be read');
+    expect(panel.textContent).not.toContain('every feed reported');
+  });
+
+  it('a health row that failed is drawn as not read even when an earlier page held healthy records, and the legend says so', async () => {
+    healthPage2Fails = true;
+    await open();
+    const grid = screen.getByTestId('health-matrix');
+    const cells = Array.from(grid.querySelectorAll('tbody [role="img"]'));
+    expect(cells).toHaveLength(14);
+    expect(cells.every(c => c.getAttribute('data-state') === 'error')).toBe(true);
+    expect(cells.every(c => (c.getAttribute('aria-label') ?? '').includes('health not read'))).toBe(true);
+    expect(within(screen.getByLabelText('Legend')).getByText('not read (error)')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Health by scope and day' }).textContent).toContain('1 scope not read');
+  });
+
+  it('the headline counts days with no record as not healthy', async () => {
+    await open();
+    expect(screen.getByRole('region', { name: 'Health by scope and day' }).textContent).toContain('1 of 1 scopes not healthy every day');
+  });
+});
+
+describe('the scope follows the URL', () => {
+  it('a changed scope prop (Back/Forward with the tab mounted) changes the list\'s scope', async () => {
+    scopeList = ['acct-1', 'acct-2'];
+    let utils: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(<CoverageView now={NOW} tab="open" scope="acct-1" onTab={() => {}} />);
+    });
+    await act(async () => {});
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-1');
+    await act(async () => {
+      utils!.rerender(<CoverageView now={NOW} tab="open" scope="acct-2" onTab={() => {}} />);
+    });
+    await act(async () => {});
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-2');
+    expect(calls.some(p => p.startsWith('/v1/coverage?') && p.includes('scope=acct-2'))).toBe(true);
   });
 });
 

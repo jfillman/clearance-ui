@@ -30,6 +30,7 @@ function useCoverageMany(api, scopes, from) {
   const poller = coveragePollerFor(api);
   return scopes.map((scope) => ({ scope, ...poller.snapshot(scope, from) }));
 }
+const OPEN_UNKNOWN_TITLE = "The open-exception count could not be read, so it is unknown. It is not zero.";
 function useOpenExceptionCount(now) {
   const api = useClearanceRead();
   const scopes = useScopes();
@@ -48,11 +49,12 @@ function useOpenExceptionCount(now) {
     },
     6e4
   );
-  const loading = scopes.loading || !scopes.failure && covs.some((c) => c.loading && c.data === void 0 && c.failure === void 0) || gate.loading || res.loading;
-  const known = scopes.data !== void 0 && !scopes.failure;
-  if (!known || loading) return { loading: !scopes.failure };
+  if (scopes.failure) return { loading: false, failed: true };
+  if (scopes.data === void 0) return { loading: true };
+  if (covs.some((c) => c.data === void 0 && c.failure !== void 0) || gate.data === void 0 && gate.failure !== void 0 || res.data === void 0 && res.failure !== void 0) return { loading: false, failed: true };
+  if (covs.some((c) => c.data === void 0) || gate.data === void 0 || res.data === void 0) return { loading: true };
   const obs = covs.flatMap((c) => observationRows(c.scope, c.data, [], [])).filter((r) => r.resolvable && !r.resolution).length;
-  const gates = gateRows(gateItems, res.data?.items ?? []).filter((r) => r.resolvable && !r.resolution).length;
+  const gates = gateRows(gateItems, res.data.items).filter((r) => r.resolvable && !r.resolution).length;
   return { count: obs + gates, loading: false };
 }
 const PAGES_PER_SCOPE = 10;
@@ -86,5 +88,5 @@ function useHealthRecords(api, scopes, now, days) {
   );
 }
 
-export { COVERAGE_WINDOW_MS, DAY_MS, fromOf, useCoverageMany, useHealthRecords, useOpenExceptionCount };
+export { COVERAGE_WINDOW_MS, DAY_MS, OPEN_UNKNOWN_TITLE, fromOf, useCoverageMany, useHealthRecords, useOpenExceptionCount };
 //# sourceMappingURL=data.esm.js.map

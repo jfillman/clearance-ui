@@ -28,7 +28,7 @@ import {
   type StatusTone,
 } from '../../kit';
 import { ExceptionsView, observationRows } from '../exceptions/ExceptionsView';
-import { fromOf, useCoverageMany, useHealthRecords } from './data';
+import { fromOf, OPEN_UNKNOWN_TITLE, useCoverageMany, useHealthRecords } from './data';
 import { HealthMatrix } from './HealthMatrix';
 import { buildHealthMatrix } from './healthModel';
 import { ResolvePanel } from './ResolvePanel';
@@ -145,12 +145,20 @@ function NamedLimits({ scopes, now }: { scopes: string[]; now: number }) {
     }
     return out;
   }, [covs]);
-  const failed = covs.find(cv => cv.failure !== undefined && cv.data === undefined)?.failure;
+  // Clean is only ever said of a scope whose coverage was read: a scope that failed or is still loading is "not read".
+  const unread = covs.filter(cv => cv.data === undefined);
+  const failedScopes = unread.filter(cv => cv.failure !== undefined);
+  const failed = failedScopes[0]?.failure;
   return (
     <Section framed aria-label="Named limits" title="Named limits" count={`${limits.length} named`}>
-      {failed !== undefined && <TabError error={new Error(readDeniedText(failed))} what="the coverage statement" />}
+      {failed !== undefined && <TabError error={new Error(readDeniedText(failed))} what={`the coverage statement of ${failedScopes.map(f => f.scope).join(', ')}`} />}
       {limits.length === 0 ? (
-        <EmptyNote inset>{scopes.length === 0 ? 'No scope is linked, so there is nothing to name.' : 'No limit is named for any scope in this window: every feed reported and none dropped.'}</EmptyNote>
+        <EmptyNote inset>
+          {scopes.length === 0 && 'No scope is linked, so there is nothing to name.'}
+          {scopes.length > 0 && failedScopes.length > 0 && `Not read: the coverage of ${failedScopes.map(f => f.scope).join(', ')} could not be read, so its limits are unknown.`}
+          {scopes.length > 0 && failedScopes.length === 0 && unread.length > 0 && 'Loading the coverage statements…'}
+          {scopes.length > 0 && unread.length === 0 && 'No limit is named for any scope in this window: every feed reported and none dropped.'}
+        </EmptyNote>
       ) : (
         <div className={c.scroll}>
           <table className={tk.table}>
@@ -171,12 +179,13 @@ function NamedLimits({ scopes, now }: { scopes: string[]; now: number }) {
           </table>
         </div>
       )}
+      {limits.length > 0 && unread.length > 0 && <Hint inset>Not read: {unread.map(u => u.scope).join(', ')}. Its limits are unknown, not absent.</Hint>}
       <Hint inset>A scope with a named limit is never reported clean: what Clearance could not see is listed, not assumed to be fine.</Hint>
     </Section>
   );
 }
 
-export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCount }: { now?: number; tab?: CoverageTab; onTab?: (t: CoverageTab, scope?: string) => void; scope?: string; openCount?: number }) {
+export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCount }: { now?: number; tab?: CoverageTab; onTab?: (t: CoverageTab, scope?: string) => void; scope?: string; openCount?: number | '?' }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
@@ -189,6 +198,8 @@ export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCou
   const active = onTab ? tab : current;
   const go = (t: CoverageTab, sc?: string) => (onTab ? onTab(t, sc) : setCurrent(t));
   const [pickScope, setPickScope] = useState<string | undefined>(scope);
+  // With a host that owns the URL (onTab), the `scope` prop is the truth, Back and Forward included; the list is keyed on it so it follows.
+  const effScope = onTab ? scope : pickScope;
   return (
     <div className={c.page}>
       <FilterBar end={<Count>{list.length === 0 ? 'No scope linked' : `${list.length} ${list.length === 1 ? 'scope' : 'scopes'}`}</Count>}>
@@ -200,11 +211,12 @@ export function CoverageView({ now: nowProp, tab = 'open', onTab, scope, openCou
         <Hint>Health could not be read for {list.filter(s => health.data!.meta[s]?.error).join(', ')}: those rows are shown as not read, not as healthy.</Hint>
       )}
       {scopes.failure === undefined && <HealthMatrix matrix={matrix} />}
-      <Subtabs label="Coverage details" tabs={COVERAGE_TABS.map(t => ({ id: t.id, label: t.label, count: t.id === 'open' ? openCount : undefined }))} value={active} onChange={id => go(id)} />
+      <Subtabs label="Coverage details" tabs={COVERAGE_TABS.map(t => ({ id: t.id, label: t.label, count: t.id === 'open' ? openCount : undefined, countTitle: t.id === 'open' && openCount === '?' ? OPEN_UNKNOWN_TITLE : undefined }))} value={active} onChange={id => go(id)} />
       {active === 'open' && (
         <ExceptionsView
+          key={effScope ?? ''}
           now={now}
-          initialScope={pickScope}
+          initialScope={effScope}
           initialOpen
           initialWindow="7d"
           renderResolve={(row, onDone) => <ResolvePanel key={row.seq} row={row} onDone={onDone} />}

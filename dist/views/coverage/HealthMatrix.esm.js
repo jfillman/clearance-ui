@@ -24,7 +24,8 @@ const useStyles = makeStyles(() => ({
   key: { display: "inline-flex", gap: 6, alignItems: "center", fontSize: fontScale.sm, color: ({ t }) => t.textLo },
   swatch: { width: 12, height: 12, borderRadius: 3, display: "inline-block", boxSizing: "border-box" }
 }));
-const fill = (t, s, partial) => {
+const fill = (t, s, partial, unread) => {
+  if (unread) return { background: `repeating-linear-gradient(45deg, ${t.bad} 0 2px, transparent 2px 6px)`, border: `1px solid ${t.bad}` };
   if (partial) return { background: "transparent", border: `1px dashed ${t.textFaint}` };
   if (s === "healthy") return { background: t.good };
   if (s === "degraded") return { background: t.amber };
@@ -42,7 +43,12 @@ function HealthMatrix({ matrix }) {
   const c = useStyles({ t });
   const tk = useTableKit();
   const sum = matrixSummary(matrix);
-  const count = matrix.rows.length === 0 ? void 0 : `${sum.unhealthy} of ${sum.scopes} not healthy every day${sum.silentToday ? ` \xB7 ${sum.silentToday} silent today` : ""}`;
+  const count = matrix.rows.length === 0 ? void 0 : [
+    `${sum.unhealthy} of ${sum.scopes} scopes not healthy every day`,
+    sum.notLoaded ? `${sum.notLoaded} ${sum.notLoaded === 1 ? "day" : "days"} not loaded` : "",
+    sum.unread ? `${sum.unread} ${sum.unread === 1 ? "scope" : "scopes"} not read` : "",
+    sum.silentToday ? `${sum.silentToday} silent today` : ""
+  ].filter(Boolean).join(" \xB7 ");
   return /* @__PURE__ */ jsx(Section, { framed: true, "aria-label": "Health by scope and day", title: "Health by scope and day", count, children: matrix.rows.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing is linked to observe yet: no cluster, cloud account or other scope is reporting to Clearance, so there is no health to show. This is not a clean bill: a scope that is not watched is not covered." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: c.grid, "aria-label": `Feed health: ${matrix.rows.length} scopes by ${matrix.days.length} days, newest day last`, "data-testid": "health-matrix", children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
@@ -54,7 +60,7 @@ function HealthMatrix({ matrix }) {
           r.scope,
           r.error ? /* @__PURE__ */ jsx(Count, { children: " not read" }) : null
         ] }),
-        r.cells.map((cell) => /* @__PURE__ */ jsx("td", { style: { padding: 0 }, children: /* @__PURE__ */ jsx(Tooltip, { title: r.error ? `${r.scope}: health not read (${r.error})` : cellLabel(r.scope, cell), children: /* @__PURE__ */ jsx("span", { className: c.cell, style: fill(t, cell.state, cell.partial), role: "img", "aria-label": r.error ? `${r.scope}, ${cell.day}: health not read` : cellLabel(r.scope, cell), "data-state": r.error ? "error" : cell.state }) }) }, cell.day))
+        r.cells.map((cell) => /* @__PURE__ */ jsx("td", { style: { padding: 0 }, children: /* @__PURE__ */ jsx(Tooltip, { title: r.error ? `${r.scope}: health not read (${r.error})` : cellLabel(r.scope, cell), children: /* @__PURE__ */ jsx("span", { className: c.cell, style: fill(t, cell.state, cell.partial, !!r.error), role: "img", "aria-label": r.error ? `${r.scope}, ${cell.day}: health not read` : cellLabel(r.scope, cell), "data-state": r.error ? "error" : cell.state }) }) }, cell.day))
       ] }, r.scope)) })
     ] }) }),
     /* @__PURE__ */ jsxs("div", { className: c.legend, "aria-label": "Legend", children: [
@@ -65,6 +71,10 @@ function HealthMatrix({ matrix }) {
       /* @__PURE__ */ jsxs("span", { className: c.key, children: [
         /* @__PURE__ */ jsx("i", { className: c.swatch, style: fill(t, "none", true), "aria-hidden": true }),
         "not loaded"
+      ] }),
+      /* @__PURE__ */ jsxs("span", { className: c.key, children: [
+        /* @__PURE__ */ jsx("i", { className: c.swatch, style: fill(t, "none", false, true), "aria-hidden": true }),
+        "not read (error)"
       ] })
     ] }),
     /* @__PURE__ */ jsx(Hint, { inset: true, children: "A day is the worst state any feed reported in it (UTC). A day with no record is shown as no record, never as healthy." })

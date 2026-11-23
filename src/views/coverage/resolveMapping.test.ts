@@ -1,5 +1,5 @@
 import { RESOLUTION_CAUSES } from '../../kit';
-import { buildHealthMatrix, dayOf, lastDays, windowStart } from './healthModel';
+import { buildHealthMatrix, dayOf, lastDays, matrixSummary, windowStart } from './healthModel';
 import { choiceById, choiceForState, RESOLVE_CHOICES, resolutionFor } from './resolveMapping';
 
 describe('the Resolve mapping (owner decision, board A-10 a)', () => {
@@ -49,5 +49,19 @@ describe('the health model', () => {
   it('days older than the oldest record read are not loaded, not quiet', () => {
     const m = buildHealthMatrix(['a'], { a: [{ seq: 1, ts: '2026-11-11T08:00:00Z', health: { state: 'healthy' } } as any] }, NOW, 3, { a: { coveredFrom: '2026-11-11T08:00:00Z' } });
     expect(m.rows[0].cells.map(c => [c.state, !!c.partial])).toEqual([['none', true], ['healthy', true], ['none', false]]);
+  });
+
+  it('the summary counts a day with no record as not healthy, a day not loaded as unknown, a failed row as unread, and silent today', () => {
+    const ok = (ts: string) => ({ seq: 1, ts, health: { state: 'healthy' } }) as any;
+    const day = (d: string) => `2026-11-${d}T08:00:00Z`;
+    const m = buildHealthMatrix(
+      ['full', 'gap', 'cut', 'err', 'bad'],
+      { full: [ok(day('10')), ok(day('11')), ok(day('12'))], gap: [ok(day('10')), ok(day('12'))], cut: [ok(day('11')), ok(day('12'))], err: [ok(day('10')), ok(day('11')), ok(day('12'))], bad: [ok(day('10')), ok(day('11')), { seq: 2, ts: day('12'), health: { state: 'degraded' } } as any] },
+      NOW, 3, { cut: { coveredFrom: day('11') }, err: { error: 'boom' } },
+    );
+    expect(matrixSummary(m)).toEqual({ scopes: 5, unhealthy: 2, silentToday: 0, notLoaded: 2, unread: 1 });
+    // gap (a day with no record) and bad (degraded) are not healthy; cut has one unloaded day and the partly read cut day (2 unknown), neither counted healthy
+    const quiet = buildHealthMatrix(['q'], { q: [ok(day('11'))] }, NOW, 3);
+    expect(matrixSummary(quiet)).toMatchObject({ unhealthy: 1, silentToday: 1 });
   });
 });

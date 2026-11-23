@@ -39,11 +39,19 @@ function buildHealthMatrix(scopes, byScope, now, count, meta = {}) {
   return { days, rows };
 }
 function matrixSummary(m) {
-  return {
-    scopes: m.rows.length,
-    unhealthy: m.rows.filter((r) => r.cells.some((c) => c.state === "degraded" || c.state === "blind")).length,
-    silentToday: m.rows.filter((r) => r.cells[r.cells.length - 1]?.state === "none").length
-  };
+  const out = { scopes: m.rows.length, unhealthy: 0, silentToday: 0, notLoaded: 0, unread: 0 };
+  for (const r of m.rows) {
+    if (r.error) {
+      out.unread += 1;
+      continue;
+    }
+    const unknown = (c) => !!c.partial && (c.state === "none" || c.state === "healthy");
+    out.notLoaded += r.cells.filter(unknown).length;
+    if (r.cells.some((c) => c.state === "degraded" || c.state === "blind" || c.state === "none" && !c.partial)) out.unhealthy += 1;
+    const last = r.cells[r.cells.length - 1];
+    if (last && last.state === "none" && !last.partial) out.silentToday += 1;
+  }
+  return out;
 }
 
 export { buildHealthMatrix, dayOf, healthOf, lastDays, matrixSummary, windowStart };

@@ -16,7 +16,7 @@ import '../../kit/kitStyles.esm.js';
 import '../../kit/ExpandRow.esm.js';
 import { Time } from '../../kit/Time.esm.js';
 import { ExceptionsView, observationRows } from '../exceptions/ExceptionsView.esm.js';
-import { useHealthRecords, fromOf, useCoverageMany } from './data.esm.js';
+import { useHealthRecords, OPEN_UNKNOWN_TITLE, fromOf, useCoverageMany } from './data.esm.js';
 import { HealthMatrix } from './HealthMatrix.esm.js';
 import { buildHealthMatrix } from './healthModel.esm.js';
 import { ResolvePanel } from './ResolvePanel.esm.js';
@@ -98,10 +98,17 @@ function NamedLimits({ scopes, now }) {
     }
     return out;
   }, [covs]);
-  const failed = covs.find((cv) => cv.failure !== void 0 && cv.data === void 0)?.failure;
+  const unread = covs.filter((cv) => cv.data === void 0);
+  const failedScopes = unread.filter((cv) => cv.failure !== void 0);
+  const failed = failedScopes[0]?.failure;
   return /* @__PURE__ */ jsxs(Section, { framed: true, "aria-label": "Named limits", title: "Named limits", count: `${limits.length} named`, children: [
-    failed !== void 0 && /* @__PURE__ */ jsx(TabError, { error: new Error(readDeniedText(failed)), what: "the coverage statement" }),
-    limits.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: scopes.length === 0 ? "No scope is linked, so there is nothing to name." : "No limit is named for any scope in this window: every feed reported and none dropped." }) : /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
+    failed !== void 0 && /* @__PURE__ */ jsx(TabError, { error: new Error(readDeniedText(failed)), what: `the coverage statement of ${failedScopes.map((f) => f.scope).join(", ")}` }),
+    limits.length === 0 ? /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
+      scopes.length === 0 && "No scope is linked, so there is nothing to name.",
+      scopes.length > 0 && failedScopes.length > 0 && `Not read: the coverage of ${failedScopes.map((f) => f.scope).join(", ")} could not be read, so its limits are unknown.`,
+      scopes.length > 0 && failedScopes.length === 0 && unread.length > 0 && "Loading the coverage statements\u2026",
+      scopes.length > 0 && unread.length === 0 && "No limit is named for any scope in this window: every feed reported and none dropped."
+    ] }) : /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("table", { className: tk.table, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: ["Scope", "Limit", "Source", "When", "Why"].map((h) => /* @__PURE__ */ jsx("th", { className: tk.th, children: h }, h)) }) }),
       /* @__PURE__ */ jsx("tbody", { children: limits.map((l) => /* @__PURE__ */ jsxs("tr", { children: [
         /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: l.scope }),
@@ -111,6 +118,11 @@ function NamedLimits({ scopes, now }) {
         /* @__PURE__ */ jsx("td", { className: `${tk.td} ${tk.meta}`, children: l.why })
       ] }, l.key)) })
     ] }) }),
+    limits.length > 0 && unread.length > 0 && /* @__PURE__ */ jsxs(Hint, { inset: true, children: [
+      "Not read: ",
+      unread.map((u) => u.scope).join(", "),
+      ". Its limits are unknown, not absent."
+    ] }),
     /* @__PURE__ */ jsx(Hint, { inset: true, children: "A scope with a named limit is never reported clean: what Clearance could not see is listed, not assumed to be fine." })
   ] });
 }
@@ -127,6 +139,7 @@ function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount }) {
   const active = onTab ? tab : current;
   const go = (t, sc) => onTab ? onTab(t, sc) : setCurrent(t);
   const [pickScope, setPickScope] = useState(scope);
+  const effScope = onTab ? scope : pickScope;
   return /* @__PURE__ */ jsxs("div", { className: c.page, children: [
     /* @__PURE__ */ jsx(FilterBar, { end: /* @__PURE__ */ jsx(Count, { children: list.length === 0 ? "No scope linked" : `${list.length} ${list.length === 1 ? "scope" : "scopes"}` }), children: /* @__PURE__ */ jsx(FilterChips, { label: "Matrix window", options: HEALTH_WINDOWS, value: days, onChange: setDays }) }),
     scopes.failure !== void 0 && /* @__PURE__ */ jsx(TabError, { error: new Error(readDeniedText(scopes.failure)), what: "the scopes", onRetry: scopes.refresh }),
@@ -137,16 +150,17 @@ function CoverageView({ now: nowProp, tab = "open", onTab, scope, openCount }) {
       ": those rows are shown as not read, not as healthy."
     ] }),
     scopes.failure === void 0 && /* @__PURE__ */ jsx(HealthMatrix, { matrix }),
-    /* @__PURE__ */ jsx(Subtabs, { label: "Coverage details", tabs: COVERAGE_TABS.map((t) => ({ id: t.id, label: t.label, count: t.id === "open" ? openCount : void 0 })), value: active, onChange: (id) => go(id) }),
+    /* @__PURE__ */ jsx(Subtabs, { label: "Coverage details", tabs: COVERAGE_TABS.map((t) => ({ id: t.id, label: t.label, count: t.id === "open" ? openCount : void 0, countTitle: t.id === "open" && openCount === "?" ? OPEN_UNKNOWN_TITLE : void 0 })), value: active, onChange: (id) => go(id) }),
     active === "open" && /* @__PURE__ */ jsx(
       ExceptionsView,
       {
         now,
-        initialScope: pickScope,
+        initialScope: effScope,
         initialOpen: true,
         initialWindow: "7d",
         renderResolve: (row, onDone) => /* @__PURE__ */ jsx(ResolvePanel, { row, onDone }, row.seq)
-      }
+      },
+      effScope ?? ""
     ),
     active === "not-attributed" && /* @__PURE__ */ jsx(NotAttributed, { scopes: list, now, onOpen: (sc) => {
       setPickScope(sc);

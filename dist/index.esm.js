@@ -23,7 +23,7 @@ export { ClearanceDetail, ClearancesView, stateTone, stillNeeds } from './views/
 export { ChangeProof } from './views/clearances/ChangeProof.esm.js';
 export { EvidenceView } from './views/evidence/EvidenceView.esm.js';
 export { COVERAGE_TABS, CoverageView, isCoverageTab } from './views/coverage/CoverageView.esm.js';
-export { useOpenExceptionCount } from './views/coverage/data.esm.js';
+export { OPEN_UNKNOWN_TITLE, useOpenExceptionCount } from './views/coverage/data.esm.js';
 export { RESOLVE_CHOICES, resolutionFor } from './views/coverage/resolveMapping.esm.js';
 export { ExceptionsView } from './views/exceptions/ExceptionsView.esm.js';
 export { AttestationsView } from './views/attestations/AttestationsView.esm.js';

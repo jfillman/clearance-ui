@@ -6,7 +6,7 @@ import { EvidenceView } from './evidence/EvidenceView';
 import { PolicyView } from './policy/PolicyView';
 import { ClearancesView } from './clearances/ClearancesView';
 import { CoverageView, isCoverageTab } from './coverage/CoverageView';
-import { useOpenExceptionCount } from './coverage/data';
+import { OPEN_UNKNOWN_TITLE, useOpenExceptionCount } from './coverage/data';
 import { MapTab } from './map';
 import { AttestationsView } from './attestations/AttestationsView';
 
@@ -44,16 +44,17 @@ export function ClearancePage() {
   const coverageTab = !legacyExceptions && isCoverageTab(rawTab) ? rawTab : 'open';
   const now = useMountedNow();
   const open = useOpenExceptionCount(now);
+  const openBadge = open.failed ? '?' : open.count;
   const current = CLEARANCE_VIEWS.find(v => v.id === view)!;
   return (
     <div className={c.root}>
       <PageHeader eyebrow={<><ProductMark product="clearance" size={20} /> Clearance · {view === 'clearances' || view === 'attestations' ? 'deployment' : 'runtime'} boundary</>} title={current.label} subtitle={current.sub} />
-      <Subtabs label="Clearance sections" tabs={CLEARANCE_VIEWS.map(v => ({ id: v.id, label: v.label, count: v.id === 'coverage' ? open.count : undefined }))} value={view} onChange={id => setParams({ view: id })} />
+      <Subtabs label="Clearance sections" tabs={CLEARANCE_VIEWS.map(v => ({ id: v.id, label: v.label, count: v.id === 'coverage' ? openBadge : undefined, countTitle: v.id === 'coverage' && open.failed ? OPEN_UNKNOWN_TITLE : undefined }))} value={view} onChange={id => setParams({ view: id })} />
       <div className={c.body}>
         {view !== 'coverage' && view !== 'policy' && view !== 'attestations' && view !== 'map' && <CoverageStrip />}
         {view === 'clearances' && <ClearancesView initial={params.get('change') ?? undefined} />}
         {view === 'evidence' && <EvidenceView initialApp={params.get('app') ?? undefined} />}
-        {view === 'coverage' && <CoverageView now={now} tab={coverageTab} scope={params.get('scope') ?? undefined} openCount={open.count} onTab={(t, scope) => setParams({ view: 'coverage', tab: t, ...(scope ? { scope } : {}) })} />}
+        {view === 'coverage' && <CoverageView now={now} tab={coverageTab} scope={params.get('scope') ?? undefined} openCount={openBadge} onTab={(t, scope) => setParams({ view: 'coverage', tab: t, ...(scope ? { scope } : {}) })} />}
         {view === 'map' && <MapTab target={params.get('target') ?? undefined} onOpenTarget={id => setParams(id ? { view: 'map', target: id } : { view: 'map' })} onNavigate={p => setParams(p)} />}
         {view === 'attestations' && <AttestationsView initial={params.get('change') ?? undefined} onOpenChange={id => setParams({ view: 'clearances', change: id })} />}
         {view === 'policy' && <PolicyView />}

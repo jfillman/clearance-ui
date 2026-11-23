@@ -24,12 +24,15 @@ export function useCoverageMany(api: ClearanceRead, scopes: string[], from: stri
   return scopes.map(scope => ({ scope, ...poller.snapshot(scope, from) }));
 }
 
+export const OPEN_UNKNOWN_TITLE = 'The open-exception count could not be read, so it is unknown. It is not zero.';
+
 /**
  * The open-exceptions count for the nav: what Clearance saw and did not clear with no resolution yet (the coverage statements),
  * plus the gate's own exceptions of a kind a person can resolve with none. An operation on the monitoring itself is never
- * resolvable, so it is not counted as something to do (the list still shows it). undefined until it is known.
+ * resolvable, so it is not counted as something to do (the list still shows it). `count` is undefined while it loads and
+ * when ANY required read failed (`failed`): a partial read is never shown as a number. A successful empty read is 0.
  */
-export function useOpenExceptionCount(now: number): { count?: number; loading: boolean } {
+export function useOpenExceptionCount(now: number): { count?: number; loading: boolean; failed?: boolean } {
   const api = useClearanceRead();
   const scopes = useScopes();
   const from = fromOf(now);
@@ -47,11 +50,13 @@ export function useOpenExceptionCount(now: number): { count?: number; loading: b
     },
     60_000,
   );
-  const loading = scopes.loading || (!scopes.failure && covs.some(c => c.loading && c.data === undefined && c.failure === undefined)) || gate.loading || res.loading;
-  const known = scopes.data !== undefined && !scopes.failure;
-  if (!known || loading) return { loading: !scopes.failure };
+  if (scopes.failure) return { loading: false, failed: true };
+  if (scopes.data === undefined) return { loading: true };
+  // Any read that failed with nothing to show is unknown, whatever else arrived.
+  if (covs.some(c => c.data === undefined && c.failure !== undefined) || (gate.data === undefined && gate.failure !== undefined) || (res.data === undefined && res.failure !== undefined)) return { loading: false, failed: true };
+  if (covs.some(c => c.data === undefined) || gate.data === undefined || res.data === undefined) return { loading: true };
   const obs = covs.flatMap(c => observationRows(c.scope, c.data, [], [])).filter(r => r.resolvable && !r.resolution).length;
-  const gates = gateRows(gateItems, res.data?.items ?? []).filter(r => r.resolvable && !r.resolution).length;
+  const gates = gateRows(gateItems, res.data.items).filter(r => r.resolvable && !r.resolution).length;
   return { count: obs + gates, loading: false };
 }
 

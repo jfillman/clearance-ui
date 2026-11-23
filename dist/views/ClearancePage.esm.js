@@ -18,7 +18,7 @@ import { EvidenceView } from './evidence/EvidenceView.esm.js';
 import { PolicyView } from './policy/PolicyView.esm.js';
 import { ClearancesView } from './clearances/ClearancesView.esm.js';
 import { isCoverageTab, CoverageView } from './coverage/CoverageView.esm.js';
-import { useOpenExceptionCount } from './coverage/data.esm.js';
+import { useOpenExceptionCount, OPEN_UNKNOWN_TITLE } from './coverage/data.esm.js';
 import { MapTab } from './map/index.esm.js';
 import { AttestationsView } from './attestations/AttestationsView.esm.js';
 
@@ -49,6 +49,7 @@ function ClearancePage() {
   const coverageTab = !legacyExceptions && isCoverageTab(rawTab) ? rawTab : "open";
   const now = useMountedNow();
   const open = useOpenExceptionCount(now);
+  const openBadge = open.failed ? "?" : open.count;
   const current = CLEARANCE_VIEWS.find((v) => v.id === view);
   return /* @__PURE__ */ jsxs("div", { className: c.root, children: [
     /* @__PURE__ */ jsx(PageHeader, { eyebrow: /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -57,12 +58,12 @@ function ClearancePage() {
       view === "clearances" || view === "attestations" ? "deployment" : "runtime",
       " boundary"
     ] }), title: current.label, subtitle: current.sub }),
-    /* @__PURE__ */ jsx(Subtabs, { label: "Clearance sections", tabs: CLEARANCE_VIEWS.map((v) => ({ id: v.id, label: v.label, count: v.id === "coverage" ? open.count : void 0 })), value: view, onChange: (id) => setParams({ view: id }) }),
+    /* @__PURE__ */ jsx(Subtabs, { label: "Clearance sections", tabs: CLEARANCE_VIEWS.map((v) => ({ id: v.id, label: v.label, count: v.id === "coverage" ? openBadge : void 0, countTitle: v.id === "coverage" && open.failed ? OPEN_UNKNOWN_TITLE : void 0 })), value: view, onChange: (id) => setParams({ view: id }) }),
     /* @__PURE__ */ jsxs("div", { className: c.body, children: [
       view !== "coverage" && view !== "policy" && view !== "attestations" && view !== "map" && /* @__PURE__ */ jsx(CoverageStrip, {}),
       view === "clearances" && /* @__PURE__ */ jsx(ClearancesView, { initial: params.get("change") ?? void 0 }),
       view === "evidence" && /* @__PURE__ */ jsx(EvidenceView, { initialApp: params.get("app") ?? void 0 }),
-      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: open.count, onTab: (t2, scope) => setParams({ view: "coverage", tab: t2, ...scope ? { scope } : {} }) }),
+      view === "coverage" && /* @__PURE__ */ jsx(CoverageView, { now, tab: coverageTab, scope: params.get("scope") ?? void 0, openCount: openBadge, onTab: (t2, scope) => setParams({ view: "coverage", tab: t2, ...scope ? { scope } : {} }) }),
       view === "map" && /* @__PURE__ */ jsx(MapTab, { target: params.get("target") ?? void 0, onOpenTarget: (id) => setParams(id ? { view: "map", target: id } : { view: "map" }), onNavigate: (p) => setParams(p) }),
       view === "attestations" && /* @__PURE__ */ jsx(AttestationsView, { initial: params.get("change") ?? void 0, onOpenChange: (id) => setParams({ view: "clearances", change: id }) }),
       view === "policy" && /* @__PURE__ */ jsx(PolicyView, {})

@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Button, FilterSelect, fontBody, fontScale, ProductMark, useClearanceRead, useClearanceTokens, useMountedNow, type ClearanceTokens } from '../../src/kit';
-import { useOpenExceptionCount } from '../../src';
+import { OPEN_UNKNOWN_TITLE, useOpenExceptionCount } from '../../src';
 import type { WebSession } from './session';
 
 // The shell's chrome: the product mark, one link per Clearance page, the app picker (which stands where Backstage's
@@ -85,7 +85,7 @@ export function TopNav({ session, onSignOut }: { session: WebSession | null; onS
         {PAGES.map(p => (
           <NavLink key={p.path} to={`${p.path}${keep}`} className={({ isActive }) => `${c.link} ${isActive ? c.active : ''}`}>
             {p.label}
-            {p.path === '/coverage' && open.count ? <span aria-label={`, ${open.count} open exceptions`} style={{ marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>{open.count}</span> : null}
+            {p.path === '/coverage' && (open.failed || open.count) ? <span title={open.failed ? OPEN_UNKNOWN_TITLE : undefined} aria-label={open.failed ? ', open exceptions unknown' : `, ${open.count} open exceptions`} style={{ marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>{open.failed ? '?' : open.count}</span> : null}
           </NavLink>
         ))}
       </nav>

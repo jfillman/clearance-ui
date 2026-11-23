@@ -181,7 +181,7 @@ function Subtabs({ label, tabs, value, onChange }) {
   const { ui } = useKit();
   return /* @__PURE__ */ jsx("div", { className: ui.subtabs, role: "tablist", "aria-label": label, children: tabs.map((tab) => /* @__PURE__ */ jsxs("button", { type: "button", role: "tab", "aria-selected": tab.id === value, onMouseDown: preventFocusScroll, className: cx(ui.subtab, tab.id === value && ui.subtabOn), onClick: () => onChange(tab.id), children: [
     tab.label,
-    tab.count ? /* @__PURE__ */ jsx("span", { "aria-label": `, ${tab.count} open`, style: { marginLeft: 6, opacity: 0.8, fontVariantNumeric: "tabular-nums" }, children: tab.count }) : null
+    tab.count ? /* @__PURE__ */ jsx(Tooltip, { title: tab.countTitle ?? "", children: /* @__PURE__ */ jsx("span", { "aria-label": tab.count === "?" ? ", count unknown" : `, ${tab.count} open`, style: { marginLeft: 6, opacity: 0.8, fontVariantNumeric: "tabular-nums" }, children: tab.count }) }) : null
   ] }, tab.id)) });
 }
 function Field({ label, children }) {

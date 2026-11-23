@@ -19,7 +19,9 @@ const useStyles = makeStyles<Theme, { t: ClearanceTokens }>(() => ({
   swatch: { width: 12, height: 12, borderRadius: 3, display: 'inline-block', boxSizing: 'border-box' },
 }));
 
-const fill = (t: ClearanceTokens, s: DayState, partial?: boolean): React.CSSProperties => {
+const fill = (t: ClearanceTokens, s: DayState, partial?: boolean, unread?: boolean): React.CSSProperties => {
+  // A row whose health could not be read is never drawn from whatever records came back: hatched, not a verdict.
+  if (unread) return { background: `repeating-linear-gradient(45deg, ${t.bad} 0 2px, transparent 2px 6px)`, border: `1px solid ${t.bad}` };
   if (partial) return { background: 'transparent', border: `1px dashed ${t.textFaint}` };
   if (s === 'healthy') return { background: t.good };
   if (s === 'degraded') return { background: t.amber };
@@ -39,7 +41,12 @@ export function HealthMatrix({ matrix }: { matrix: Matrix }) {
   const c = useStyles({ t });
   const tk = useTableKit();
   const sum = matrixSummary(matrix);
-  const count = matrix.rows.length === 0 ? undefined : `${sum.unhealthy} of ${sum.scopes} not healthy every day${sum.silentToday ? ` · ${sum.silentToday} silent today` : ''}`;
+  const count = matrix.rows.length === 0 ? undefined : [
+    `${sum.unhealthy} of ${sum.scopes} scopes not healthy every day`,
+    sum.notLoaded ? `${sum.notLoaded} ${sum.notLoaded === 1 ? 'day' : 'days'} not loaded` : '',
+    sum.unread ? `${sum.unread} ${sum.unread === 1 ? 'scope' : 'scopes'} not read` : '',
+    sum.silentToday ? `${sum.silentToday} silent today` : '',
+  ].filter(Boolean).join(' · ');
   return (
     <Section framed aria-label="Health by scope and day" title="Health by scope and day" count={count}>
       {matrix.rows.length === 0 ? (
@@ -63,7 +70,7 @@ export function HealthMatrix({ matrix }: { matrix: Matrix }) {
                     {r.cells.map(cell => (
                       <td key={cell.day} style={{ padding: 0 }}>
                         <Tooltip title={r.error ? `${r.scope}: health not read (${r.error})` : cellLabel(r.scope, cell)}>
-                          <span className={c.cell} style={fill(t, cell.state, cell.partial)} role="img" aria-label={r.error ? `${r.scope}, ${cell.day}: health not read` : cellLabel(r.scope, cell)} data-state={r.error ? 'error' : cell.state} />
+                          <span className={c.cell} style={fill(t, cell.state, cell.partial, !!r.error)} role="img" aria-label={r.error ? `${r.scope}, ${cell.day}: health not read` : cellLabel(r.scope, cell)} data-state={r.error ? 'error' : cell.state} />
                         </Tooltip>
                       </td>
                     ))}
@@ -77,6 +84,7 @@ export function HealthMatrix({ matrix }: { matrix: Matrix }) {
               <span key={s} className={c.key}><i className={c.swatch} style={fill(t, s)} aria-hidden />{WORD[s]}</span>
             ))}
             <span className={c.key}><i className={c.swatch} style={fill(t, 'none', true)} aria-hidden />not loaded</span>
+            <span className={c.key}><i className={c.swatch} style={fill(t, 'none', false, true)} aria-hidden />not read (error)</span>
           </div>
           <Hint inset>A day is the worst state any feed reported in it (UTC). A day with no record is shown as no record, never as healthy.</Hint>
         </>

@@ -7,7 +7,7 @@ export { ClearancesView, ClearanceDetail, stillNeeds, stateTone } from './views/
 export { ChangeProof } from './views/clearances/ChangeProof';
 export { EvidenceView } from './views/evidence/EvidenceView';
 export { CoverageView, COVERAGE_TABS, isCoverageTab, type CoverageTab } from './views/coverage/CoverageView';
-export { useOpenExceptionCount } from './views/coverage/data';
+export { OPEN_UNKNOWN_TITLE, useOpenExceptionCount } from './views/coverage/data';
 export { RESOLVE_CHOICES, resolutionFor, type ResolveChoice, type ResolveChoiceId } from './views/coverage/resolveMapping';
 export { ExceptionsView } from './views/exceptions/ExceptionsView';
 export { AttestationsView } from './views/attestations/AttestationsView';
