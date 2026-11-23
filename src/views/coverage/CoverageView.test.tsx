@@ -259,20 +259,21 @@ describe('the scope follows the URL', () => {
     });
     await act(async () => {});
     await openTab('Not attributed');
-    // the row is acct-2's: acct-2 has its own statement here
+    // the table has a row for each scope; click the acct-2 one (the page is on acct-1, so sending the current scope would be wrong)
+    const row = within(screen.getByRole('region', { name: 'Not attributed' })).getAllByRole('row').find(r => within(r).queryByText('acct-2'));
+    expect(row).toBeTruthy();
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /in open exceptions/ })[0]);
+      fireEvent.click(within(row!).getByRole('button', { name: /in open exceptions/ }));
     });
     expect(onScope).toHaveBeenCalledTimes(1);
-    const sc = onScope.mock.calls[0][0];
-    expect(['acct-1', 'acct-2']).toContain(sc);
+    expect(onScope).toHaveBeenCalledWith('acct-2');
     expect(screen.getByRole('tab', { name: /Open exceptions/ }).getAttribute('aria-selected')).toBe('true');
     // the host answers by passing the scope back: the list is on it
     await act(async () => {
-      utils!.rerender(<CoverageView now={NOW} scope={sc} onScope={onScope} />);
+      utils!.rerender(<CoverageView now={NOW} scope="acct-2" onScope={onScope} />);
     });
     await act(async () => {});
-    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe(sc);
+    expect((screen.getByLabelText('Scope') as HTMLSelectElement).value).toBe('acct-2');
   });
 
   it('with onTab the scope travels once, through onTab, and onScope is not also called', async () => {
