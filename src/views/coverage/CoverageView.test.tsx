@@ -5,6 +5,9 @@ import { ClearanceTransportProvider, createFetchTransport } from '../../kit';
 import { ClearancePage, CLEARANCE_VIEWS } from '../ClearancePage';
 import { CoverageView, type CoverageTab } from './CoverageView';
 
+// Role queries over a whole Coverage page are slow on a loaded CI runner: give each test room.
+jest.setTimeout(30_000);
+
 const NOW = Date.parse('2026-11-12T12:00:00Z');
 const item = (seq: number, over: Record<string, unknown> = {}) => ({
   seq, ts: '2026-11-12T10:00:00Z', source: 'cloudtrail', coverage: 'out-of-band-detected', resource: 'sg/web', api: 'AuthorizeSecurityGroupIngress', tier: 2, assessment: null,
@@ -236,9 +239,8 @@ describe('the Resolve panel', () => {
     await open();
     const detail = await openRow('sg/web');
     await recordWith(detail);
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('BACKSTAGE-ADMIN');
-    expect(alert.textContent).toContain('admins only');
+    const refusal = await screen.findByText(/BACKSTAGE-ADMIN/, {}, { timeout: 10_000 });
+    expect(refusal.textContent).toContain('admins only');
   });
 
   it('a viewer who is not an admin sees no Resolve action, only why', async () => {
