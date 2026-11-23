@@ -5,7 +5,7 @@ Clearance UI repo.
 The web UI for [Clearance](https://github.com/jfillman/clearance), in two parts built from one source tree:
 
 1. **`@jfillman/clearance-ui`**, a package (`src/`). The design kit (tokens, chips, tables, filters; Tower's look), the
-   `ClearanceTransport` seam and the host-agnostic views: Clearances, Evidence, Exceptions, Attestations, Map, Policy.
+   `ClearanceTransport` seam and the host-agnostic views: Clearances, Evidence, Coverage, Attestations, Map, Policy.
    No `@backstage/*` import anywhere: a host supplies a transport through `<ClearanceTransportProvider>`, so every call
    to clearance-api and the core goes through one interface. Backstage's Clearance plugin is one host; the shell below
    is the other. `createFakeTransport` serves tests.

@@ -353,13 +353,19 @@ export function TextLink({
 
 // ---- sub-tabs
 
-export function Subtabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: Array<{ id: T; label: string }>; value: T; onChange: (id: T) => void }) {
+/** A tab bar. A tab's `count` (an open-items number, or '?' when it is unknown, with `countTitle` saying why) reads after its label and in its accessible name; 0 and undefined show nothing. */
+export function Subtabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: Array<{ id: T; label: string; count?: number | '?'; countTitle?: string }>; value: T; onChange: (id: T) => void }) {
   const { ui } = useKit();
   return (
     <div className={ui.subtabs} role="tablist" aria-label={label}>
       {tabs.map(tab => (
         <button key={tab.id} type="button" role="tab" aria-selected={tab.id === value} onMouseDown={preventFocusScroll} className={cx(ui.subtab, tab.id === value && ui.subtabOn)} onClick={() => onChange(tab.id)}>
           {tab.label}
+          {tab.count ? (
+            <Tooltip title={tab.countTitle ?? ''}>
+              <span aria-label={tab.count === '?' ? ', count unknown' : `, ${tab.count} open`} style={{ marginLeft: 6, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{tab.count}</span>
+            </Tooltip>
+          ) : null}
         </button>
       ))}
     </div>

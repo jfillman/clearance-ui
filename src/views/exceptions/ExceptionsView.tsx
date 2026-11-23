@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import {
@@ -93,7 +93,7 @@ const COVERAGE_TONE: Record<string, StatusTone> = {
 // How an exception ended: put right or accepted is ok; still live or declared break-glass still needs a person's eye.
 const RESOLUTION_TONE: Record<string, StatusTone> = { reverted: 'ok', ratified: 'ok', 'still-live': 'warn', 'declared-break-glass': 'warn' };
 
-interface Row {
+export interface Row {
   seq: number;
   ts: string;
   scope: string;
@@ -286,6 +286,8 @@ function ResolveForm({ row, onDone }: { row: Row; onDone: (text: string, record?
   );
 }
 
+export type ResolveRenderer = (row: Row, onDone: (text: string, record?: ObservationRecord) => void) => ReactNode;
+
 const rowKey = (r: Row) => `${r.gate ? 'gate' : 'obs'}-${r.seq}`;
 
 type RecordedHandler = (text: string | undefined, records?: ObservationRecord | ObservationRecord[]) => void;
@@ -459,7 +461,7 @@ function BulkResolve({ picked, matching, onSelectAllMatching, onClear, onSettled
   );
 }
 
-function RowDetail({ row, admin, onChanged, now }: { row: Row; admin: boolean; onChanged: RecordedHandler; now: number }) {
+function RowDetail({ row, admin, onChanged, now, renderResolve }: { row: Row; admin: boolean; onChanged: RecordedHandler; now: number; renderResolve?: ResolveRenderer }) {
   const t = useClearanceTokens();
   const c = useStyles();
   return (
@@ -487,7 +489,7 @@ function RowDetail({ row, admin, onChanged, now }: { row: Row; admin: boolean; o
         </Fact>
       </FactGrid>
       {!row.resolvable && <Hint>{row.whyNot}</Hint>}
-      {row.resolvable && admin && <ResolveForm key={row.seq} row={row} onDone={onChanged} />}
+      {row.resolvable && admin && (renderResolve ? renderResolve(row, onChanged) : <ResolveForm key={row.seq} row={row} onDone={onChanged} />)}
       {row.resolvable && !admin && <Hint>Only Clearance admins can resolve an exception. You can read everything here.</Hint>}
     </section>
   );
@@ -531,7 +533,7 @@ export function matchesSearch(r: Row, q: string): boolean {
 
 const COLUMNS = ['When', 'Class', 'Resource', 'Actor', 'What changed', 'Resolution'];
 
-function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, pageSize, onPageSize, picked, onPick }: { title: string; rows: Row[]; selected?: string; onSelect: (key: string | undefined) => void; now: number; admin: boolean; onChanged: RecordedHandler; pageSize: number; onPageSize: (n: number) => void; picked: Set<string>; onPick: (keys: string[], on: boolean) => void }) {
+function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, pageSize, onPageSize, picked, onPick, renderResolve }: { renderResolve?: ResolveRenderer; title: string; rows: Row[]; selected?: string; onSelect: (key: string | undefined) => void; now: number; admin: boolean; onChanged: RecordedHandler; pageSize: number; onPageSize: (n: number) => void; picked: Set<string>; onPick: (keys: string[], on: boolean) => void }) {
   const c = useStyles();
   const tk = useTableKit();
   const [page, setPage] = useState(0);
@@ -562,7 +564,7 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
                 const isOpen = selected === key;
                 const toggle = () => onSelect(isOpen ? undefined : key);
                 return (
-                  <ExpandRow key={key} id={`exc-${key}`} open={isOpen} onToggle={toggle} colSpan={cols.length} label={`Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`} details={<RowDetail row={r} admin={admin} onChanged={onChanged} now={now} />}>
+                  <ExpandRow key={key} id={`exc-${key}`} open={isOpen} onToggle={toggle} colSpan={cols.length} label={`Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`} details={<RowDetail row={r} admin={admin} onChanged={onChanged} now={now} renderResolve={renderResolve} />}>
                     {admin && (
                       <td className={tk.td} onClick={e => e.stopPropagation()}>
                         {r.resolvable && <Checkbox aria-label={`Select ${rowName(r)}, seq ${r.seq}`} checked={picked.has(key)} onChange={() => onPick([key], !picked.has(key))} />}
@@ -594,17 +596,26 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
   );
 }
 
-export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; initialScope?: string }) {
+export function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve, onScope }: { now?: number; initialScope?: string; onScope?: (scope: string | undefined) => void; initialOpen?: boolean; initialWindow?: '24h' | '7d' | '30d'; renderResolve?: ResolveRenderer }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [scope, setScope] = useState<string | undefined>(initialScope);
-  const [windowId, setWindowId] = useState('24h');
+  // A host that owns the URL changes `initialScope` (Back/Forward, a link): the list follows it, keeping its other filters.
+  const seenInitial = useRef(initialScope);
+  useEffect(() => {
+    if (seenInitial.current === initialScope) return;
+    seenInitial.current = initialScope;
+    setScope(initialScope);
+    setSelected(undefined);
+  }, [initialScope]);
+  const [windowId, setWindowId] = useState<string>(initialWindow ?? '24h');
   const [klass, setKlass] = useState('all');
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!initialOpen);
   const [selected, setSelected] = useState<string>();
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
+  const appliedSearch = useRef('');
   const [sort, setSort] = useState<SortId>('newest');
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const win = WINDOWS.find(w => w.id === windowId)!;
@@ -646,7 +657,9 @@ export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; i
   useEffect(() => {
     const id = setTimeout(() => {
       setQuery(search);
-      setSelected(undefined);
+      // Only a changed search closes the open row: the first run must not (a row opened within 200 ms of the mount stayed open).
+      if (search !== appliedSearch.current) setSelected(undefined);
+      appliedSearch.current = search;
     }, 200);
     return () => clearTimeout(id);
   }, [search]);
@@ -707,7 +720,7 @@ export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; i
   return (
     <div className={c.page}>
       <FilterBar end={filterEnd}>
-        <FilterSelect label="Scope" value={active ?? ''} disabled={!scopes.data?.scopes.length} options={(scopes.data?.scopes ?? []).map(s => ({ value: s, label: s }))} onChange={v => { setScope(v); setSelected(undefined); }} />
+        <FilterSelect label="Scope" value={active ?? ''} disabled={!scopes.data?.scopes.length} options={(scopes.data?.scopes ?? []).map(s => ({ value: s, label: s }))} onChange={v => { setScope(v || undefined); setSelected(undefined); onScope?.(v || undefined); }} />
         <FilterChips label="Window" options={WINDOWS.map(w => ({ id: w.id, label: w.label }))} value={windowId} onChange={setWindowId} />
         <FilterChips label="Class" options={[{ id: 'all', label: 'All' }, ...classes.map(k => ({ id: k, label: k }))]} value={klass} onChange={setKlass} />
         <FilterGroup label="Resolution">
@@ -743,11 +756,11 @@ export function ExceptionsView({ now: nowProp, initialScope }: { now?: number; i
       <div className={c.stack}>
         {active && !denied && (
           <>
-            <RowTable key={`obs|${tableKey}`} title="Seen, not cleared" rows={shownObs} selected={selected} onSelect={setSelected} now={now} admin={admin} onChanged={recorded} pageSize={pageSize} onPageSize={setPageSize} picked={picked} onPick={pick} />
+            <RowTable key={`obs|${tableKey}`} title="Seen, not cleared" rows={shownObs} selected={selected} onSelect={setSelected} now={now} admin={admin} onChanged={recorded} pageSize={pageSize} onPageSize={setPageSize} picked={picked} onPick={pick} renderResolve={renderResolve} />
             {cov.data?.seen_not_cleared.truncated && <Hint>The statement lists the first 200; narrow the window to see the rest.</Hint>}
           </>
         )}
-        <RowTable key={`gate|${tableKey}`} title="Gate exceptions" rows={shownGate} selected={selected} onSelect={setSelected} now={now} admin={admin} onChanged={recorded} pageSize={pageSize} onPageSize={setPageSize} picked={picked} onPick={pick} />
+        <RowTable key={`gate|${tableKey}`} title="Gate exceptions" rows={shownGate} selected={selected} onSelect={setSelected} now={now} admin={admin} onChanged={recorded} pageSize={pageSize} onPageSize={setPageSize} picked={picked} onPick={pick} renderResolve={renderResolve} />
       </div>
     </div>
   );

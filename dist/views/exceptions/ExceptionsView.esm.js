@@ -1,5 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { RESOLUTION_STATES, RESOLUTION_CAUSES } from '../../kit/types.esm.js';
 import { fontScale, useClearanceTokens } from '../../kit/tokens.esm.js';
@@ -379,7 +379,7 @@ function BulkResolve({ picked, matching, onSelectAllMatching, onClear, onSettled
     ] })
   ] });
 }
-function RowDetail({ row, admin, onChanged, now }) {
+function RowDetail({ row, admin, onChanged, now, renderResolve }) {
   const t = useClearanceTokens();
   const c = useStyles();
   return /* @__PURE__ */ jsxs("section", { className: c.inlineDetail, style: { borderLeft: `3px solid ${t.amber}` }, "aria-label": "Exception detail", children: [
@@ -416,7 +416,7 @@ function RowDetail({ row, admin, onChanged, now }) {
       ] }, h.seq)) }) })
     ] }),
     !row.resolvable && /* @__PURE__ */ jsx(Hint, { children: row.whyNot }),
-    row.resolvable && admin && /* @__PURE__ */ jsx(ResolveForm, { row, onDone: onChanged }, row.seq),
+    row.resolvable && admin && (renderResolve ? renderResolve(row, onChanged) : /* @__PURE__ */ jsx(ResolveForm, { row, onDone: onChanged }, row.seq)),
     row.resolvable && !admin && /* @__PURE__ */ jsx(Hint, { children: "Only Clearance admins can resolve an exception. You can read everything here." })
   ] });
 }
@@ -448,7 +448,7 @@ function matchesSearch(r, q) {
   return hay.some((v) => typeof v === "string" && v.toLowerCase().includes(needle));
 }
 const COLUMNS = ["When", "Class", "Resource", "Actor", "What changed", "Resolution"];
-function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, pageSize, onPageSize, picked, onPick }) {
+function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, pageSize, onPageSize, picked, onPick, renderResolve }) {
   const c = useStyles();
   const tk = useTableKit();
   const [page, setPage] = useState(0);
@@ -466,7 +466,7 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
         const key = rowKey(r);
         const isOpen = selected === key;
         const toggle = () => onSelect(isOpen ? void 0 : key);
-        return /* @__PURE__ */ jsxs(ExpandRow, { id: `exc-${key}`, open: isOpen, onToggle: toggle, colSpan: cols.length, label: `Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, details: /* @__PURE__ */ jsx(RowDetail, { row: r, admin, onChanged, now }), children: [
+        return /* @__PURE__ */ jsxs(ExpandRow, { id: `exc-${key}`, open: isOpen, onToggle: toggle, colSpan: cols.length, label: `Details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, details: /* @__PURE__ */ jsx(RowDetail, { row: r, admin, onChanged, now, renderResolve }), children: [
           admin && /* @__PURE__ */ jsx("td", { className: tk.td, onClick: (e) => e.stopPropagation(), children: r.resolvable && /* @__PURE__ */ jsx(Checkbox, { "aria-label": `Select ${rowName(r)}, seq ${r.seq}`, checked: picked.has(key), onChange: () => onPick([key], !picked.has(key)) }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(TextLink, { expanded: isOpen, title: whenTitle(r.ts), "aria-label": `${isOpen ? "Hide" : "Show"} details for ${r.klass} ${r.resource || r.source}, seq ${r.seq}`, children: relativeTime(r.ts, now) }) }),
           /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(StatusChip, { tone: COVERAGE_TONE[r.klass] ?? "neutral", children: r.klass }) }),
@@ -487,17 +487,25 @@ function RowTable({ title, rows, selected, onSelect, now, admin, onChanged, page
     } })
   ] });
 }
-function ExceptionsView({ now: nowProp, initialScope }) {
+function ExceptionsView({ now: nowProp, initialScope, initialOpen, initialWindow, renderResolve, onScope }) {
   const c = useStyles();
   const api = useClearanceRead();
   const now = useMountedNow(nowProp);
   const [scope, setScope] = useState(initialScope);
-  const [windowId, setWindowId] = useState("24h");
+  const seenInitial = useRef(initialScope);
+  useEffect(() => {
+    if (seenInitial.current === initialScope) return;
+    seenInitial.current = initialScope;
+    setScope(initialScope);
+    setSelected(void 0);
+  }, [initialScope]);
+  const [windowId, setWindowId] = useState(initialWindow ?? "24h");
   const [klass, setKlass] = useState("all");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!initialOpen);
   const [selected, setSelected] = useState();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const appliedSearch = useRef("");
   const [sort, setSort] = useState("newest");
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const win = WINDOWS.find((w) => w.id === windowId);
@@ -534,7 +542,8 @@ function ExceptionsView({ now: nowProp, initialScope }) {
   useEffect(() => {
     const id = setTimeout(() => {
       setQuery(search);
-      setSelected(void 0);
+      if (search !== appliedSearch.current) setSelected(void 0);
+      appliedSearch.current = search;
     }, 200);
     return () => clearTimeout(id);
   }, [search]);
@@ -590,8 +599,9 @@ function ExceptionsView({ now: nowProp, initialScope }) {
   return /* @__PURE__ */ jsxs("div", { className: c.page, children: [
     /* @__PURE__ */ jsxs(FilterBar, { end: filterEnd, children: [
       /* @__PURE__ */ jsx(FilterSelect, { label: "Scope", value: active ?? "", disabled: !scopes.data?.scopes.length, options: (scopes.data?.scopes ?? []).map((s) => ({ value: s, label: s })), onChange: (v) => {
-        setScope(v);
+        setScope(v || void 0);
         setSelected(void 0);
+        onScope?.(v || void 0);
       } }),
       /* @__PURE__ */ jsx(FilterChips, { label: "Window", options: WINDOWS.map((w) => ({ id: w.id, label: w.label })), value: windowId, onChange: setWindowId }),
       /* @__PURE__ */ jsx(FilterChips, { label: "Class", options: [{ id: "all", label: "All" }, ...classes.map((k) => ({ id: k, label: k }))], value: klass, onChange: setKlass }),
@@ -624,10 +634,10 @@ function ExceptionsView({ now: nowProp, initialScope }) {
     ),
     /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
       active && !denied && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx(RowTable, { title: "Seen, not cleared", rows: shownObs, selected, onSelect: setSelected, now, admin, onChanged: recorded, pageSize, onPageSize: setPageSize, picked, onPick: pick }, `obs|${tableKey}`),
+        /* @__PURE__ */ jsx(RowTable, { title: "Seen, not cleared", rows: shownObs, selected, onSelect: setSelected, now, admin, onChanged: recorded, pageSize, onPageSize: setPageSize, picked, onPick: pick, renderResolve }, `obs|${tableKey}`),
         cov.data?.seen_not_cleared.truncated && /* @__PURE__ */ jsx(Hint, { children: "The statement lists the first 200; narrow the window to see the rest." })
       ] }),
-      /* @__PURE__ */ jsx(RowTable, { title: "Gate exceptions", rows: shownGate, selected, onSelect: setSelected, now, admin, onChanged: recorded, pageSize, onPageSize: setPageSize, picked, onPick: pick }, `gate|${tableKey}`)
+      /* @__PURE__ */ jsx(RowTable, { title: "Gate exceptions", rows: shownGate, selected, onSelect: setSelected, now, admin, onChanged: recorded, pageSize, onPageSize: setPageSize, picked, onPick: pick, renderResolve }, `gate|${tableKey}`)
     ] })
   ] });
 }

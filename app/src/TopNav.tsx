@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Button, FilterSelect, fontBody, fontScale, ProductMark, useClearanceRead, useClearanceTokens, type ClearanceTokens } from '../../src/kit';
+import { Button, FilterSelect, fontBody, fontScale, ProductMark, useClearanceRead, useClearanceTokens, useMountedNow, type ClearanceTokens } from '../../src/kit';
+import { OPEN_UNKNOWN_TITLE, useOpenExceptionCount } from '../../src';
 import type { WebSession } from './session';
 
 // The shell's chrome: the product mark, one link per Clearance page, the app picker (which stands where Backstage's
@@ -12,7 +13,7 @@ import type { WebSession } from './session';
 export const PAGES = [
   { path: '/clearances', label: 'Clearances' },
   { path: '/evidence', label: 'Evidence' },
-  { path: '/exceptions', label: 'Exceptions' },
+  { path: '/coverage', label: 'Coverage' },
   { path: '/attestations', label: 'Attestations' },
   { path: '/map', label: 'Map' },
   { path: '/policy', label: 'Policy' },
@@ -74,6 +75,7 @@ export function TopNav({ session, onSignOut }: { session: WebSession | null; onS
   const app = new URLSearchParams(search).get('app');
   const keep = app ? `?app=${encodeURIComponent(app)}` : '';
   const navigate = useNavigate();
+  const open = useOpenExceptionCount(useMountedNow());
   return (
     <header className={c.bar}>
       <a className={c.brand} href="/clearances" onClick={e => { e.preventDefault(); navigate(`/clearances${keep}`); }}>
@@ -83,6 +85,7 @@ export function TopNav({ session, onSignOut }: { session: WebSession | null; onS
         {PAGES.map(p => (
           <NavLink key={p.path} to={`${p.path}${keep}`} className={({ isActive }) => `${c.link} ${isActive ? c.active : ''}`}>
             {p.label}
+            {p.path === '/coverage' && (open.failed || open.count) ? <span title={open.failed ? OPEN_UNKNOWN_TITLE : undefined} aria-label={open.failed ? ', open exceptions unknown' : `, ${open.count} open exceptions`} style={{ marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>{open.failed ? '?' : open.count}</span> : null}
           </NavLink>
         ))}
       </nav>
